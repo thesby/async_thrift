@@ -226,7 +226,7 @@ namespace apache { namespace thrift { namespace async {
     }
   }
 
-  void AsyncThriftClient::handle_write(boost::shared_ptr<AsyncOp> op,
+  void AsyncThriftClient::handle_write(bool is_oneway, boost::shared_ptr<AsyncOp> op,
     const boost::system::error_code& ec, size_t bytes_transferred)
   {
     assert(op);
@@ -241,11 +241,20 @@ namespace apache { namespace thrift { namespace async {
     }
     else
     {
-      op->frame.resize(sizeof(int32_t));
-      boost::asio::async_read(*socket_,
-        boost::asio::buffer(op->frame),
-        boost::asio::transfer_all(),
-        strand_->wrap(boost::bind(&AsyncThriftClient::handle_read_length, this, op, _1, _2)));
+      if (is_oneway)
+      {
+        async_op_list_.pop_front();
+        //invoke callback successfully
+        op->callback(ec);
+      }
+      else
+      {
+        op->frame.resize(sizeof(int32_t));
+        boost::asio::async_read(*socket_,
+          boost::asio::buffer(op->frame),
+          boost::asio::transfer_all(),
+          strand_->wrap(boost::bind(&AsyncThriftClient::handle_read_length, this, op, _1, _2)));
+      }
     }
   }
 

@@ -73,7 +73,7 @@ namespace apache { namespace thrift { namespace async {
       const boost::system::error_code& ec, size_t bytes_transferred);
     void handle_read_frame(boost::shared_ptr<AsyncOp> op,
       const boost::system::error_code& ec, size_t bytes_transferred);
-    void handle_write(boost::shared_ptr<AsyncOp> op,
+    void handle_write(bool is_oneway, boost::shared_ptr<AsyncOp> op,
       const boost::system::error_code& ec, size_t bytes_transferred);
 
     virtual void fill_result(AsyncOp& op) = 0;

@@ -31,5 +31,8 @@ service EchoServer {
   i32 echo2(1:required i32 i),
   string echo3(1:required string str),
   string echo4(1:required i32 i1 2:required i64 i2),
+
+  void void_func(),
+  oneway void oneway_func(),
 }
 

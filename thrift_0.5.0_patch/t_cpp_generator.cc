@@ -1363,20 +1363,30 @@ string t_cpp_generator::async_function_signature(t_function * tfunction,
   std::string ret;
   ret.reserve(128);
 
+  //return type is void
   ret += "void ";
   if (!prefix.empty()) ret += prefix;
   ret += "async_";
   ret += tfunction->get_name();
 
   ret += "(";
-  ret += type_name(ret_type);
-  ret += "& _return, ";
+
+  //first argument is the return value if it is not "void"
+  if (!ret_type->is_void())
+  {
+    ret += type_name(ret_type);
+    ret += "& _return, ";
+  }
+
+  //the following is the argument list
   if (!arglist->get_members().empty())
   {
     ret += argument_list(arglist, name_params);
     ret += ", ";
   }
+
   ret += "AsyncRPCCallback callback";
+
   ret += ")";
 
   return ret;
@@ -1516,8 +1526,14 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       indent() << "boost::shared_ptr<AsyncOp> op(new AsyncOp);" << endl <<
       indent() << "async_op_list_.push_back(op);" << endl <<
       indent() << "op->callback = callback;" << endl <<
-      indent() << "op->rpc_type = " << function_op_enums[i] << ";" << endl <<
+      indent() << "op->rpc_type = " << function_op_enums[i] << ";" << endl;
+
+    if (!ret_type->is_void())
+      f_async_service_ <<
       indent() << "op->_return = static_cast<void*>(&_return);" << endl << endl;
+    else
+      f_async_service_ <<
+      indent() << "op->_return = NULL;" << endl << endl;
 
     const vector<t_field*>& args = function->get_arglist()->get_members();
     string arg_string;
@@ -1541,12 +1557,13 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
     f_async_service_ <<
       indent() << "boost::asio::transfer_all()," << endl;
     f_async_service_ <<
-      indent() << "strand_->wrap(boost::bind(&" << async_class_name << "::handle_write, this, op, _1, _2)));" << endl;
+      indent() << "strand_->wrap(boost::bind(&" << async_class_name << "::handle_write, this, " <<
+      (function->is_oneway() ? "true, " : "false, ") << "op, _1, _2)));" << endl;
     indent_down();
 
     f_async_service_ << "}" << endl << endl;
 
-    //sync RPC TODO
+    //sync RPC
     f_async_service_ <<
       function_signature(function, async_class_name + "::") << " {" << endl;
 
@@ -1588,47 +1605,57 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       indent() << "throw ec;" << endl;
     indent_down();
     f_async_service_ <<
-      indent() << "}" << endl << endl;
+      indent() << "}" << endl;
 
-    f_async_service_ <<
-      indent() << "std::vector<uint8_t> frame(sizeof(int32_t));" << endl <<
-      indent() << "boost::asio::read(*socket_, boost::asio::buffer(frame), boost::asio::transfer_all(), ec);" << endl <<
-      indent() << "int32_t _return_size = get_frame_size(frame);" << endl << endl <<
-      indent() << "if (_return_size <= 0) {" << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "close(NULL);" << endl <<
-      indent() << "GlobalOutput.printf(\"%s frame size <= 0: %d\", __FUNCTION__, _return_size);" << endl <<
-      indent() << "throw ::apache::thrift::transport::TTransportException(\"frame size <= 0\");" << endl;
-    indent_down();
-    f_async_service_ <<
-      indent() << "}" << endl << endl;
-
-    f_async_service_ <<
-      indent() << "frame.resize(sizeof(int32_t) + _return_size);" << endl <<
-      indent() << "boost::asio::read(*socket_, boost::asio::buffer(&frame[0] + sizeof(int32_t), _return_size), boost::asio::transfer_all(), ec);" << endl << endl <<
-      indent() << "if (ec) {" << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "close(NULL);" << endl <<
-      indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
-      indent() << "throw ec;" << endl;
-    indent_down();
-    f_async_service_ <<
-      indent() << "}" << endl << endl;
-
-    f_async_service_ <<
-      indent() << "input_buffer_->resetBuffer(&frame[0], frame.size());" << endl << endl;
-
-    if (is_complex_type(ret_type))
+    if (!function->is_oneway())
     {
+      f_async_service_ << endl;
+
       f_async_service_ <<
-        indent() << "client_->recv_" << function->get_name() << "(_return);//shall not throw" << endl;
-    }
-    else
-    {
+        indent() << "std::vector<uint8_t> frame(sizeof(int32_t));" << endl <<
+        indent() << "boost::asio::read(*socket_, boost::asio::buffer(frame), boost::asio::transfer_all(), ec);" << endl <<
+        indent() << "int32_t _return_size = get_frame_size(frame);" << endl << endl <<
+        indent() << "if (_return_size <= 0) {" << endl;
+      indent_up();
       f_async_service_ <<
-        indent() << "return client_->recv_" << function->get_name() << "();//shall not throw" << endl;
+        indent() << "close(NULL);" << endl <<
+        indent() << "GlobalOutput.printf(\"%s frame size <= 0: %d\", __FUNCTION__, _return_size);" << endl <<
+        indent() << "throw ::apache::thrift::transport::TTransportException(\"frame size <= 0\");" << endl;
+      indent_down();
+      f_async_service_ <<
+        indent() << "}" << endl << endl;
+
+      f_async_service_ <<
+        indent() << "frame.resize(sizeof(int32_t) + _return_size);" << endl <<
+        indent() << "boost::asio::read(*socket_, boost::asio::buffer(&frame[0] + sizeof(int32_t), _return_size), boost::asio::transfer_all(), ec);" << endl << endl <<
+        indent() << "if (ec) {" << endl;
+      indent_up();
+      f_async_service_ <<
+        indent() << "close(NULL);" << endl <<
+        indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
+        indent() << "throw ec;" << endl;
+      indent_down();
+      f_async_service_ <<
+        indent() << "}" << endl << endl;
+
+      f_async_service_ <<
+        indent() << "input_buffer_->resetBuffer(&frame[0], frame.size());" << endl << endl;
+
+      if (is_complex_type(ret_type))
+      {
+        f_async_service_ <<
+          indent() << "client_->recv_" << function->get_name() << "(_return);//shall not throw" << endl;
+      }
+      else if (!ret_type->is_void())
+      {
+        f_async_service_ <<
+          indent() << "return client_->recv_" << function->get_name() << "();//shall not throw" << endl;
+      }
+      else
+      {
+        f_async_service_ <<
+          indent() << "client_->recv_" << function->get_name() << "();//shall not throw" << endl;
+      }
     }
 
     f_async_service_ <<
@@ -1647,24 +1674,27 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
     t_function * function = functions[i];
     t_type * ret_type = function->get_returntype();
 
-    f_async_service_ <<
-      indent() << "case " << function_op_enums[i] << ":" << endl;
-    indent_up();
-    if (is_complex_type(ret_type))
+    if (!ret_type->is_void())//including oneway
     {
       f_async_service_ <<
-        indent() << "client_->recv_" << function->get_name() <<
-        "(*(static_cast<" << type_name(ret_type) << "*>(op._return)));//shall not throw" << endl <<
-        indent() << "break;" << endl;
+        indent() << "case " << function_op_enums[i] << ":" << endl;
+      indent_up();
+      if (is_complex_type(ret_type))
+      {
+        f_async_service_ <<
+          indent() << "client_->recv_" << function->get_name() <<
+          "(*(static_cast<" << type_name(ret_type) << "*>(op._return)));//shall not throw" << endl <<
+          indent() << "break;" << endl;
+      }
+      else
+      {
+        f_async_service_ <<
+          indent() << "(*(static_cast<" << type_name(ret_type) << "*>(op._return))) = client_->recv_"
+          << function->get_name() << "();//shall not throw" << endl <<
+          indent() << "break;" << endl;
+      }
+      indent_down();
     }
-    else
-    {
-      f_async_service_ <<
-        indent() << "(*(static_cast<" << type_name(ret_type) << "*>(op._return))) = client_->recv_"
-        << function->get_name() << "();//shall not throw" << endl <<
-        indent() << "break;" << endl;
-    }
-    indent_down();
   }
 
   f_async_service_ <<
