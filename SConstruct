@@ -45,6 +45,7 @@ Source = [
     'example/gen-cpp/test_constants.cpp',
     'example/gen-cpp/test_types.cpp',
     'lib/AsyncThriftClient.cpp',
+    'lib/AsyncThriftServer.cpp',
 ]
 
 env.Program('server',

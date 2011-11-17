@@ -6,8 +6,6 @@
 *
 */
 #include <assert.h>
-#include <exception>
-#include <list>
 #include <boost/bind.hpp>
 #include <Thrift.h>
 #include <protocol/TBinaryProtocol.h>
@@ -88,11 +86,6 @@ namespace apache { namespace thrift { namespace async {
     return size;
   }
 
-  void AsyncThriftClient::set_rpc_timeout(size_t milliseconds)
-  {
-    timeout_ = milliseconds;
-  }
-
   void AsyncThriftClient::close(const boost::system::error_code * ec)
   {
     if (!socket_)
@@ -102,7 +95,10 @@ namespace apache { namespace thrift { namespace async {
     strand_.reset();
     cancel_rpc_timer();
     timer_.reset();
-    socket_->close();
+    {
+      boost::system::error_code ec;
+      socket_->close(ec);
+    }
     socket_.reset();
 
     boost::system::error_code real_ec;

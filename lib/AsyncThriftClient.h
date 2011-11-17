@@ -10,6 +10,7 @@
 
 #include <stdint.h>
 #include <vector>
+#include <list>
 #include <boost/asio.hpp>
 #include <boost/function.hpp>
 #include <boost/noncopyable.hpp>
@@ -49,7 +50,15 @@ namespace apache { namespace thrift { namespace async {
 
     //0 means no timeout
     //the timeout will take effect after the current operation if existing
-    void set_rpc_timeout(size_t milliseconds);
+    void set_rpc_timeout(size_t milliseconds)
+    {
+      timeout_ = milliseconds;
+    }
+
+    size_t get_rpc_timeout()const
+    {
+      return timeout_;
+    }
 
     static int32_t get_frame_size(const std::vector<uint8_t>& frame);
 

@@ -6,6 +6,7 @@ Features:
   1.2. asynchronous RPC client with synchronous RPC
 2. full compatibility with the official thrift
 3. full boost.asio implementation
+4. asynchronous thrift server
 
 
 Installation and Usage:
@@ -22,6 +23,5 @@ thrift server must use TFramedTransport and TBinaryProtocol
 
 
 TODO:
-asynchronous thrift server
 support for thrift-0.7.0
 

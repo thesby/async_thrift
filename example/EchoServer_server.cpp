@@ -7,18 +7,19 @@
 #include <server/TThreadedServer.h>
 #include <transport/TServerSocket.h>
 #include <transport/TBufferTransports.h>
+#include "AsyncThriftServer.h"
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
 using namespace ::apache::thrift::transport;
 using namespace ::apache::thrift::server;
+using namespace ::apache::thrift::async;
 
 using boost::shared_ptr;
-
 using namespace com::langtaojin::adgaga;
 
 class EchoServerHandler : virtual public EchoServerNull {
- public:
+public:
   EchoServerHandler() {
     // Your initialization goes here
   }
@@ -29,24 +30,48 @@ class EchoServerHandler : virtual public EchoServerNull {
     _return.message = request.message;
     printf("%s\n", request.message.c_str());
   }
-
 };
 
 int main(int argc, char **argv) {
   int port = 12500;
   shared_ptr<EchoServerHandler> handler(new EchoServerHandler());
   shared_ptr<TProcessor> processor(new EchoServerProcessor(handler));
-  shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
-  shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
-  shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
+  //  shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
+  //  shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
+  //  shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
+  //
+  //  TThreadedServer
+  //  server(processor,
+  //      serverTransport,
+  //      transportFactory,
+  //      protocolFactory);
+  //
+  //  server.serve();
+  //
 
-  TThreadedServer
-  server(processor,
-      serverTransport,
-      transportFactory,
-      protocolFactory);
+  try
+  {
+    boost::asio::io_service io_service;
+    boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor(new boost::asio::ip::tcp::acceptor(io_service));
 
-  server.serve();
+    boost::asio::ip::tcp::endpoint endpoint(
+      boost::asio::ip::address::from_string("127.0.0.1"), port);
+    acceptor->open(endpoint.protocol());
+    acceptor->bind(endpoint);
+    acceptor->listen();
+
+    AsyncThriftServer server(processor, acceptor, 16);
+    server.serve();
+  }
+  catch (std::exception& e)
+  {
+    printf("caught: %s\n", e.what());
+  }
+  catch (...)
+  {
+    printf("caught: something\n");
+  }
+
   return 0;
 }
 
