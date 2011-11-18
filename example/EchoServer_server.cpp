@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
     acceptor->bind(endpoint);
     acceptor->listen();
 
-    AsyncThriftServer server(processor, acceptor, 16);
+    AsyncThriftServer server(processor, acceptor, 16, 0);
     server.serve();
   }
   catch (std::exception& e)
