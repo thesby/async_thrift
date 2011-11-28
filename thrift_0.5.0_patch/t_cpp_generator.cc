@@ -1530,10 +1530,20 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
 
     if (!ret_type->is_void())
       f_async_service_ <<
-      indent() << "op->_return = static_cast<void*>(&_return);" << endl << endl;
+      indent() << "op->_return = static_cast<void*>(&_return);" << endl;
     else
       f_async_service_ <<
-      indent() << "op->_return = NULL;" << endl << endl;
+      indent() << "op->_return = NULL;" << endl;
+
+    if (function->is_oneway())
+      f_async_service_ <<
+      indent() << "op->is_oneway = true;" << endl << endl;
+    else
+      f_async_service_ <<
+      indent() << "op->is_oneway = false;" << endl << endl;
+
+    f_async_service_ <<
+      indent() << "pending_async_op_ = op;" << endl << endl;
 
     const vector<t_field*>& args = function->get_arglist()->get_members();
     string arg_string;
@@ -1558,7 +1568,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       indent() << "boost::asio::transfer_all()," << endl;
     f_async_service_ <<
       indent() << "strand_->wrap(boost::bind(&" << async_class_name << "::handle_write, this, " <<
-      (function->is_oneway() ? "true, " : "false, ") << "op, _1, _2)));" << endl;
+      "_1, _2)));" << endl;
     indent_down();
 
     f_async_service_ << "}" << endl << endl;
@@ -1600,7 +1610,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       indent() << "if (ec) {" << endl;
     indent_up();
     f_async_service_ <<
-      indent() << "close(NULL);" << endl <<
+      indent() << "close();" << endl <<
       indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
       indent() << "throw ec;" << endl;
     indent_down();
@@ -1614,24 +1624,24 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       f_async_service_ <<
         indent() << "std::vector<uint8_t> frame(sizeof(int32_t));" << endl <<
         indent() << "boost::asio::read(*socket_, boost::asio::buffer(frame), boost::asio::transfer_all(), ec);" << endl <<
-        indent() << "int32_t _return_size = get_frame_size(frame);" << endl << endl <<
-        indent() << "if (_return_size <= 0) {" << endl;
+        indent() << "get_frame_size();" << endl << endl <<
+        indent() << "if (frame_size_ <= 0) {" << endl;
       indent_up();
       f_async_service_ <<
-        indent() << "close(NULL);" << endl <<
-        indent() << "GlobalOutput.printf(\"%s frame size <= 0: %d\", __FUNCTION__, _return_size);" << endl <<
+        indent() << "close();" << endl <<
+        indent() << "GlobalOutput.printf(\"%s frame size <= 0: %d\", __FUNCTION__, frame_size_);" << endl <<
         indent() << "throw ::apache::thrift::transport::TTransportException(\"frame size <= 0\");" << endl;
       indent_down();
       f_async_service_ <<
         indent() << "}" << endl << endl;
 
       f_async_service_ <<
-        indent() << "frame.resize(sizeof(int32_t) + _return_size);" << endl <<
-        indent() << "boost::asio::read(*socket_, boost::asio::buffer(&frame[0] + sizeof(int32_t), _return_size), boost::asio::transfer_all(), ec);" << endl << endl <<
+        indent() << "frame.resize(sizeof(int32_t) + frame_size_);" << endl <<
+        indent() << "boost::asio::read(*socket_, boost::asio::buffer(&frame[0] + sizeof(int32_t), frame_size_), boost::asio::transfer_all(), ec);" << endl << endl <<
         indent() << "if (ec) {" << endl;
       indent_up();
       f_async_service_ <<
-        indent() << "close(NULL);" << endl <<
+        indent() << "close();" << endl <<
         indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
         indent() << "throw ec;" << endl;
       indent_down();
