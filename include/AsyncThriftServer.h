@@ -13,6 +13,7 @@
 #include <string>
 #include <set>
 #include <boost/asio.hpp>
+#include <boost/enable_shared_from_this.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/system/error_code.hpp>
@@ -22,9 +23,9 @@
 
 namespace apache { namespace thrift { namespace async {
 
-  class AsyncConnection;
-
-  class AsyncThriftServer : public ::apache::thrift::server::TServer, private boost::noncopyable
+  class AsyncThriftServer : public ::apache::thrift::server::TServer,
+    public boost::enable_shared_from_this<AsyncThriftServer>,
+    private boost::noncopyable
   {
   public:
     //socket must be opened and listening
@@ -63,32 +64,30 @@ namespace apache { namespace thrift { namespace async {
     virtual void stop();
 
   protected:
-    boost::asio::io_service& io_service_;
-    boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
-    const size_t thread_pool_size_;
-
-  protected:
     class Connection;//client connection
     friend class Connection;
-    typedef boost::shared_ptr<AsyncConnection> ConnectionSP;
+    typedef boost::shared_ptr<Connection> ConnectionSP;
+    struct ConnectionSPLess
+    {
+      bool operator()(const ConnectionSP& a, const ConnectionSP& b)const
+      {
+        return a.get() < b.get();
+      }
+    };
+    typedef std::set<ConnectionSP, ConnectionSPLess> ConnectionSPSet;
 
     void async_accept();
     void handle_accept(ConnectionSP conn, const boost::system::error_code& ec);
     void remove_client(const ConnectionSP& conn);
 
-    struct ConnectionSPLess
-    {
-      bool operator()(const ConnectionSP& a, const ConnectionSP& b)const
-      {
-        //compare the address of pointers
-        return a.get() < b.get();
-      }
-    };
-
-    typedef std::set<ConnectionSP, ConnectionSPLess> ClientSet;
-    ClientSet client_;
-    boost::mutex client_mutex_;
+    boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
+    const size_t thread_pool_size_;
     const size_t max_client_;
+    boost::asio::io_service& io_service_;
+
+    ConnectionSP new_connection_;
+    boost::mutex client_mutex_;
+    ConnectionSPSet client_;
   };
 
 } } } // namespace

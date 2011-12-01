@@ -7,6 +7,7 @@
 */
 #include <assert.h>
 #include <boost/bind.hpp>
+#include <boost/weak_ptr.hpp>
 #include <Thrift.h>
 #include <AsyncConnection.h>
 #include <AsyncThriftServer.h>
@@ -19,37 +20,35 @@ namespace apache { namespace thrift { namespace async {
   class AsyncThriftServer::Connection : public AsyncConnection
   {
   private:
-    AsyncThriftServer * parent;
+    boost::weak_ptr<AsyncThriftServer> parent_;
+    boost::shared_ptr<apache::thrift::TProcessor> processor_;
 
   public:
-    Connection(boost::asio::io_service& io_service, AsyncThriftServer * server)
-      :AsyncConnection(io_service), parent(server)
+    Connection(boost::asio::io_service& io_service,
+      boost::shared_ptr<AsyncThriftServer> parent,
+      boost::shared_ptr< ::apache::thrift::TProcessor> processor)
+      :AsyncConnection(io_service), parent_(parent), processor_(processor)
     {
-      assert(server);
     }
 
     virtual ~Connection()
     {
-      close();
     }
 
   protected:
     virtual void on_close(const boost::system::error_code * ec)
     {
-      if (socket_)
-      {
-        parent->remove_client(shared_from_this());
-        boost::system::error_code ec;
-        socket_->close(ec);
-        socket_.reset();
-      }
+      boost::shared_ptr<AsyncThriftServer> parent = parent_.lock();
+      if (parent)
+        parent->remove_client(
+        boost::dynamic_pointer_cast<AsyncThriftServer::Connection, AsyncConnection>(shared_from_this()));
     }
 
     virtual void on_handle_frame()
     {
       try
       {
-        parent->getProcessor()->process(input_proto_, output_proto_);
+        processor_->process(input_proto_, output_proto_);
       }
       catch (...)
       {
@@ -75,12 +74,12 @@ namespace apache { namespace thrift { namespace async {
     const boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor,
     size_t thread_pool_size,
     size_t max_client)
-    :TServer(processor), io_service_(acceptor->get_io_service()),
+    :TServer(processor), acceptor_(acceptor),
     thread_pool_size_(thread_pool_size?thread_pool_size:1),
-    max_client_(max_client)
+    max_client_(max_client),
+    io_service_(acceptor->get_io_service())
   {
     assert(acceptor);
-    acceptor_ = acceptor;
   }
 
   AsyncThriftServer::~AsyncThriftServer()
@@ -91,8 +90,12 @@ namespace apache { namespace thrift { namespace async {
     boost::system::error_code ec;
     acceptor_->close(ec);
 
-    boost::mutex::scoped_lock guard(client_mutex_);
-    client_.clear();
+    new_connection_.reset();
+
+    {
+      boost::mutex::scoped_lock guard(client_mutex_);
+      client_.clear();
+    }
   }
 
   void AsyncThriftServer::serve()
@@ -115,12 +118,12 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncThriftServer::async_accept()
   {
-    ConnectionSP conn(new Connection(io_service_, this));
+    new_connection_.reset(new Connection(io_service_, shared_from_this(), getProcessor()));
 
-    //pass "conn" to a bound handler that could hold a copy of "conn",
+    //pass "new_connection_" to a bound handler that could hold a copy of "new_connection_",
     //which makes it still alive
-    acceptor_->async_accept(conn->get_socket(),
-      boost::bind(&AsyncThriftServer::handle_accept, this, conn, _1));
+    acceptor_->async_accept(new_connection_->get_socket(),
+      boost::bind(&AsyncThriftServer::handle_accept, this, new_connection_, _1));
   }
 
   void AsyncThriftServer::handle_accept(ConnectionSP conn,

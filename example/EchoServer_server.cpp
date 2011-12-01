@@ -1,3 +1,11 @@
+/** @file
+* @brief
+* @author yafei.zhang@langtaojin.com
+* @date
+* @version
+*
+*/
+#include <signal.h>
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <protocol/TBinaryProtocol.h>
@@ -30,6 +38,14 @@ public:
   }
 };
 
+static boost::shared_ptr<TServer> s_server;
+
+static void signal_handler(int)
+{
+  if (s_server)
+    s_server->stop();
+}
+
 int main(int argc, char **argv)
 {
   try
@@ -59,6 +75,8 @@ int main(int argc, char **argv)
     boost::shared_ptr<EchoServerHandler> handler(new EchoServerHandler());
     boost::shared_ptr<TProcessor> processor(new EchoServerProcessor(handler));
 
+    signal(SIGINT, signal_handler);
+
     if (server_model == "threaded")
     {
       std::cout << "TThreadedServer" << std::endl;
@@ -66,13 +84,12 @@ int main(int argc, char **argv)
       boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
       boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
 
-      TThreadedServer
-        server(processor,
+      s_server.reset(new TThreadedServer(processor,
         serverTransport,
         transportFactory,
-        protocolFactory);
-
-      server.serve();
+        protocolFactory));
+      s_server->serve();
+      s_server.reset();
     }
     else if (server_model == "threadpool")
     {
@@ -86,15 +103,15 @@ int main(int argc, char **argv)
       boost::shared_ptr<PosixThreadFactory> thread_factory(new PosixThreadFactory());
       thread_manager->threadFactory(thread_factory);
 
-      TThreadPoolServer
-        server(processor,
+      s_server.reset(new TThreadPoolServer(processor,
         serverTransport,
         transportFactory,
         protocolFactory,
-        thread_manager);
+        thread_manager));
 
       thread_manager->start();
-      server.serve();
+      s_server->serve();
+      s_server.reset();
     }
     else
     {
@@ -106,11 +123,14 @@ int main(int argc, char **argv)
       boost::asio::ip::tcp::endpoint endpoint(
         boost::asio::ip::address::from_string("127.0.0.1"), port);
       acceptor->open(endpoint.protocol());
+      boost::asio::socket_base::reuse_address option(true);
+      acceptor->set_option(option);
       acceptor->bind(endpoint);
       acceptor->listen();
 
-      AsyncThriftServer server(processor, acceptor, threadpool_size, 0);
-      server.serve();
+      s_server.reset(new AsyncThriftServer(processor, acceptor, threadpool_size, 0));
+      s_server->serve();
+      s_server.reset();
     }
   }
   catch (std::exception& e)

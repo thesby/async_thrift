@@ -53,6 +53,12 @@ namespace apache { namespace thrift { namespace async {
 
   AsyncConnection::~AsyncConnection()
   {
+    if (socket_)
+    {
+      boost::system::error_code ec;
+      socket_->close(ec);
+      socket_.reset();
+    }
   }
 
   bool AsyncConnection::is_open()const
