@@ -27,7 +27,7 @@ namespace apache { namespace thrift { namespace async {
     public boost::enable_shared_from_this<AsyncThriftServer>,
     private boost::noncopyable
   {
-  public:
+  protected:
     //socket must be opened and listening
     AsyncThriftServer(
       boost::shared_ptr< ::apache::thrift::TProcessor> processor,
@@ -35,6 +35,13 @@ namespace apache { namespace thrift { namespace async {
       size_t thread_pool_size,
       //0 means no maximum client limit
       //the limit will take effect to the new coming clients
+      size_t max_client);
+
+  public:
+    static boost::shared_ptr<AsyncThriftServer> create_server(
+      boost::shared_ptr< ::apache::thrift::TProcessor> processor,
+      const boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor,
+      size_t thread_pool_size,
       size_t max_client = 0);
 
     virtual ~AsyncThriftServer();

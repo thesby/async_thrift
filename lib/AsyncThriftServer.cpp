@@ -82,6 +82,16 @@ namespace apache { namespace thrift { namespace async {
     assert(acceptor);
   }
 
+  boost::shared_ptr<AsyncThriftServer> AsyncThriftServer::create_server(
+    boost::shared_ptr< ::apache::thrift::TProcessor> processor,
+    const boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor,
+    size_t thread_pool_size,
+    size_t max_client)
+  {
+    return boost::shared_ptr<AsyncThriftServer>(
+      new AsyncThriftServer(processor, acceptor, thread_pool_size, max_client));
+  }
+
   AsyncThriftServer::~AsyncThriftServer()
   {
     stop();//NOTICE: no polymorphisms here

@@ -128,7 +128,7 @@ int main(int argc, char **argv)
       acceptor->bind(endpoint);
       acceptor->listen();
 
-      s_server.reset(new AsyncThriftServer(processor, acceptor, threadpool_size, 0));
+      s_server = AsyncThriftServer::create_server(processor, acceptor, threadpool_size, 0);
       s_server->serve();
       s_server.reset();
     }
