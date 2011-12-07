@@ -38,7 +38,11 @@ namespace apache { namespace thrift { namespace async {
     {
       boost::posix_time::milliseconds timeout(timeout_);
       timer_->expires_from_now(timeout);
-      timer_->async_wait(strand_->wrap(boost::bind(&AsyncThriftClient::handle_timeout, this, _1)));
+
+      if (strand_)
+        timer_->async_wait(strand_->wrap(boost::bind(&AsyncThriftClient::handle_timeout, this, _1)));
+      else
+        timer_->async_wait(boost::bind(&AsyncThriftClient::handle_timeout, this, _1));
     }
   }
 
@@ -65,7 +69,6 @@ namespace apache { namespace thrift { namespace async {
       return;
 
     io_service_ = 0;
-    strand_.reset();
     cancel_rpc_timer();
     timer_.reset();
     {
@@ -73,6 +76,7 @@ namespace apache { namespace thrift { namespace async {
       socket_->close(ec);
     }
     socket_.reset();
+    strand_.reset();
 
     boost::system::error_code real_ec;
     if (ec)
@@ -100,7 +104,7 @@ namespace apache { namespace thrift { namespace async {
 
     io_service_ = &socket->get_io_service();
     socket_ = socket;
-    strand_.reset(new boost::asio::io_service::strand(get_io_service()));
+    //strand_.reset(new boost::asio::io_service::strand(get_io_service()));
     timer_.reset(new boost::asio::deadline_timer(get_io_service()));
   }
 

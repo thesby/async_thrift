@@ -25,14 +25,14 @@ namespace apache { namespace thrift { namespace async {
     :io_service_(&io_service)
   {
     socket_.reset(new boost::asio::ip::tcp::socket(io_service));
-    strand_.reset(new boost::asio::io_service::strand(get_io_service()));
+    //strand_.reset(new boost::asio::io_service::strand(get_io_service()));
     common_init();
   }
 
   AsyncConnection::AsyncConnection(const boost::shared_ptr<boost::asio::ip::tcp::socket> socket)
     :io_service_(&socket->get_io_service()), socket_(socket)
   {
-    strand_.reset(new boost::asio::io_service::strand(get_io_service()));
+    //strand_.reset(new boost::asio::io_service::strand(get_io_service()));
     common_init();
   }
 
@@ -91,10 +91,20 @@ namespace apache { namespace thrift { namespace async {
       frame_size_ = 0;
       state_ = kReadFrameSize;
 
-      socket_->async_read_some(
-        boost::asio::buffer(buffer_),
-        strand_->wrap(boost::bind(&AsyncConnection::handle_read,
-        shared_from_this(), _1, _2)));
+      if (strand_)
+      {
+        socket_->async_read_some(
+          boost::asio::buffer(buffer_),
+          strand_->wrap(boost::bind(&AsyncConnection::handle_read,
+          shared_from_this(), _1, _2)));
+      }
+      else
+      {
+        socket_->async_read_some(
+          boost::asio::buffer(buffer_),
+          boost::bind(&AsyncConnection::handle_read,
+          shared_from_this(), _1, _2));
+      }
     }
     else
     {
@@ -103,10 +113,20 @@ namespace apache { namespace thrift { namespace async {
       if (bytes_recv_ == buffer_size)
         buffer_.resize(buffer_size << 1);
 
-      socket_->async_read_some(
-        boost::asio::buffer(&buffer_[bytes_recv_], buffer_size - bytes_recv_),
-        strand_->wrap(boost::bind(&AsyncConnection::handle_read,
-        shared_from_this(), _1, _2)));
+      if (strand_)
+      {
+        socket_->async_read_some(
+          boost::asio::buffer(&buffer_[bytes_recv_], buffer_size - bytes_recv_),
+          strand_->wrap(boost::bind(&AsyncConnection::handle_read,
+          shared_from_this(), _1, _2)));
+      }
+      else
+      {
+        socket_->async_read_some(
+          boost::asio::buffer(&buffer_[bytes_recv_], buffer_size - bytes_recv_),
+          boost::bind(&AsyncConnection::handle_read,
+          shared_from_this(), _1, _2));
+      }
     }
   }
 
@@ -176,10 +196,11 @@ namespace apache { namespace thrift { namespace async {
   {
     if (socket_)
     {
-      strand_.reset();
       boost::system::error_code ec;
       socket_->close(ec);
       socket_.reset();
+
+      strand_.reset();
     }
   }
 
@@ -190,7 +211,7 @@ namespace apache { namespace thrift { namespace async {
 
     io_service_ = &socket->get_io_service();
     socket_ = socket;
-    strand_.reset(new boost::asio::io_service::strand(get_io_service()));
+    //strand_.reset(new boost::asio::io_service::strand(get_io_service()));
   }
 
   void AsyncConnection::on_detach()
@@ -199,7 +220,7 @@ namespace apache { namespace thrift { namespace async {
       return;
 
     io_service_ = NULL;
-    strand_.reset();
+    //strand_.reset();
     socket_.reset();
   }
 

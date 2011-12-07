@@ -87,6 +87,7 @@ int main(int argc, char **argv)
       socket->connect(endpoint);
 
       session[i].client.reset(new AsyncEchoServerClient(socket));
+      session[i].client->create_strand();
       session[i].client->set_rpc_timeout(timeout);
       session[i].times = times;
       session[i].request.__isset.message = true;

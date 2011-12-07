@@ -70,6 +70,22 @@ namespace apache { namespace thrift { namespace async {
       return *socket_;
     }
 
+    //NOTICE: if we use timer, create_strand must be invoked before any operations
+    void create_strand()
+    {
+      strand_.reset(new boost::asio::io_service::strand(get_io_service()));
+    }
+
+    boost::shared_ptr<boost::asio::io_service::strand> get_strand()
+    {
+      return strand_;
+    }
+
+    void set_strand(boost::shared_ptr<boost::asio::io_service::strand> strand)
+    {
+      strand_ = strand;
+    }
+
     bool is_open()const;
     //close the inner socket, clear all asynchronous operations,
     //whose callback shall be invoked with the "ec" as "operation canceled"
