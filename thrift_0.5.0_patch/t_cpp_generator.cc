@@ -1396,18 +1396,19 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
 {
   string svcname = tservice->get_name();
   string class_name = svcname + "Client";
+  string async_name = "Async" + svcname;
   string async_class_name = "Async" + svcname + "Client";
 
-  string f_async_header_name = get_out_dir() + async_class_name + ".h";
-  string f_async_service_name = get_out_dir() + async_class_name + ".cpp";
+  string f_async_header_name = get_out_dir() + async_name + ".h";
+  string f_async_service_name = get_out_dir() + async_name + ".cpp";
 
   f_async_header_.open(f_async_header_name.c_str());
   f_async_service_.open(f_async_service_name.c_str());
 
   f_async_header_ << autogen_comment();
   f_async_header_ <<
-    "#ifndef " << async_class_name << "_H" << endl <<
-    "#define " << async_class_name << "_H" << endl << endl <<
+    "#ifndef " << async_name << "_H" << endl <<
+    "#define " << async_name << "_H" << endl << endl <<
     "#include <AsyncThriftClient.h>//add include path to CPPFLAGS(-Ixxx)" << endl <<
     "#include \"" << get_include_prefix(*get_program()) << svcname << ".h\"" << endl << endl;
   f_async_header_ << ns_open_ << endl << endl;
@@ -1417,7 +1418,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
   f_async_service_ <<
     "#include <boost/bind.hpp>" << endl;
   f_async_service_ <<
-    "#include \"" << get_include_prefix(*get_program()) << async_class_name << ".h\"" << endl << endl <<
+    "#include \"" << get_include_prefix(*get_program()) << async_name << ".h\"" << endl << endl <<
     ns_open_ << endl << endl;
 
   indent_up();
@@ -1559,6 +1560,11 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       indent() << "client_->send_" << function->get_name() << "(" << arg_string <<");//shall not throw" << endl <<
       indent() << "output_buffer_->getBuffer(&out_frame, &out_frame_size);" << ";" << endl << endl;
 
+    //async_write
+    f_async_service_ <<
+      indent() << "if (strand_)" << endl;
+
+    indent_up();
     f_async_service_ <<
       indent() << "boost::asio::async_write(*socket_," << endl;
     indent_up();
@@ -1570,6 +1576,25 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       indent() << "strand_->wrap(boost::bind(&" << async_class_name << "::handle_write, this, " <<
       "_1, _2)));" << endl;
     indent_down();
+    indent_down();
+
+    f_async_service_ <<
+      indent() << "else" << endl;
+
+    indent_up();
+    f_async_service_ <<
+      indent() << "boost::asio::async_write(*socket_," << endl;
+    indent_up();
+    f_async_service_ <<
+      indent() << "boost::asio::buffer(out_frame, out_frame_size)," << endl;
+    f_async_service_ <<
+      indent() << "boost::asio::transfer_all()," << endl;
+    f_async_service_ <<
+      indent() << "boost::bind(&" << async_class_name << "::handle_write, this, " <<
+      "_1, _2));" << endl;
+    indent_down();
+    indent_down();
+    //end of async_write
 
     f_async_service_ << "}" << endl << endl;
 
@@ -1669,7 +1694,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
     }
 
     f_async_service_ <<
-      "}" << endl;
+      "}" << endl << endl;
   }
 
   //key virtual function: fill_result(.cpp)

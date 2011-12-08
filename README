@@ -23,5 +23,6 @@ thrift server must use TFramedTransport and TBinaryProtocol
 
 
 TODO:
+generate AsyncProcessor code for each server
 support for thrift-0.7.0
 

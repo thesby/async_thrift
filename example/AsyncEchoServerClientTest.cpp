@@ -10,7 +10,7 @@
 #include <boost/bind.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread.hpp>
-#include "AsyncEchoServerClient.h"
+#include "AsyncEchoServer.h"
 
 using namespace com::langtaojin::adgaga;
 
