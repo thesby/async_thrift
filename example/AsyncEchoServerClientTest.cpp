@@ -10,7 +10,7 @@
 #include <boost/bind.hpp>
 #include <boost/program_options.hpp>
 #include <boost/thread.hpp>
-#include "AsyncEchoServer.h"
+#include "gen-cpp/AsyncEchoServer.h"
 
 using namespace com::langtaojin::adgaga;
 
@@ -22,9 +22,6 @@ void echo_callback(AsyncEchoServerClient * client,
 
   if (!ec)
   {
-    //printf("async_echo callback: %s\n", _return->message.c_str());
-    //request->message += " ^_^";
-
     if (--(*times) != 0)
       client->async_echo(*_return, *request,
       boost::bind(echo_callback, client, _return, request, times, _1));
@@ -53,7 +50,6 @@ int main(int argc, char **argv)
       ("help", "produce help message")
       ("port,p", po::value<int>()->default_value(12500), "listening port")
       ("clients,c", po::value<int>()->default_value(768), "clients' number")
-      ("timeout", po::value<int>()->default_value(100), "client's rpc timeout(in milli seconds)")
       ("times", po::value<int>()->default_value(64), "client's rpc times")
       ("threadpool-size,t", po::value<int>()->default_value(16), "thread pool size");
 
@@ -69,7 +65,6 @@ int main(int argc, char **argv)
 
     int port = vm["port"].as<int>();
     int clients = vm["clients"].as<int>();
-    int timeout = vm["timeout"].as<int>();
     int times = vm["times"].as<int>();
     int threadpool_size = vm["threadpool-size"].as<int>();
 
@@ -87,8 +82,6 @@ int main(int argc, char **argv)
       socket->connect(endpoint);
 
       session[i].client.reset(new AsyncEchoServerClient(socket));
-      session[i].client->create_strand();
-      session[i].client->set_rpc_timeout(timeout);
       session[i].times = times;
       session[i].request.__isset.message = true;
       session[i].request.message = "Hello World";

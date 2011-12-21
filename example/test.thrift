@@ -1,4 +1,5 @@
 #!/usr/local/bin/thrift --java --cpp --py
+include "base.thrift"
 
 namespace cpp com.langtaojin.adgaga
 
@@ -26,13 +27,15 @@ struct Response {
 }
 
 
-service EchoServer {
+service EchoServer extends base.BaseServer {
   Response echo(1:required Request request),
   i32 echo2(1:required i32 i),
   string echo3(1:required string str),
   string echo4(1:required i32 i1 2:required i64 i2),
 
   void void_func(),
+  void void_func2(1:required Request request 2:required string str),
   oneway void oneway_func(),
+  oneway void oneway_func2(1:required Request request 2:required string str),
 }
 

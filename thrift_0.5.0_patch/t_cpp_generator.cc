@@ -86,7 +86,6 @@ class t_cpp_generator : public t_oop_generator {
   void generate_cpp_struct(t_struct* tstruct, bool is_exception);
 
   void generate_service(t_service* tservice);
-  void generate_async_client(t_service* tservice);
 
   void print_const_value(std::ofstream& out, std::string name, t_type* type, t_const_value* value);
   std::string render_const_value(std::ofstream& out, std::string name, t_type* type, t_const_value* value);
@@ -178,7 +177,6 @@ class t_cpp_generator : public t_oop_generator {
   std::string base_type_name(t_base_type::t_base tbase);
   std::string declare_field(t_field* tfield, bool init=false, bool pointer=false, bool constant=false, bool reference=false);
   std::string function_signature(t_function* tfunction, std::string prefix="", bool name_params=true);
-  std::string async_function_signature(t_function * tfunction, std::string prefix="", bool name_params=true);
   std::string argument_list(t_struct* tstruct, bool name_params=true);
   std::string type_to_enum(t_type* ttype);
   std::string local_reflection_name(const char*, t_type* ttype, bool external=false);
@@ -240,13 +238,23 @@ class t_cpp_generator : public t_oop_generator {
   std::ofstream f_types_impl_;
   std::ofstream f_header_;
   std::ofstream f_service_;
-  std::ofstream f_async_header_;
-  std::ofstream f_async_service_;
 
   /**
    * When generating local reflections, make sure we don't generate duplicates.
    */
   std::set<std::string> reflected_fingerprints_;
+
+ private:
+  string async_client_function_signature(t_function * tfunction, const string& prefix="", bool name_params=true);
+  string async_if_function_signature(t_function * tfunction, const string& prefix="", bool name_params=true);
+  string async_process_function_signature(t_function * tfunction, const string& prefix="");
+  string async_complete_function_signature(t_function * tfunction, const string& svcname, const string& prefix="");
+  void generate_async(t_service* tservice);
+  void generate_async_client(t_service* tservice);
+  void generate_async_if_and_processor(t_service* tservice);
+
+  std::ofstream f_async_header_;
+  std::ofstream f_async_service_;
 };
 
 
@@ -1350,402 +1358,7 @@ void t_cpp_generator::generate_service(t_service* tservice) {
   f_service_.close();
   f_header_.close();
 
-  generate_async_client(tservice);
-}
-
-string t_cpp_generator::async_function_signature(t_function * tfunction,
-                                                 std::string prefix,
-                                                 bool name_params)
-{
-  t_type * ret_type = tfunction->get_returntype();
-  t_struct * arglist = tfunction->get_arglist();
-
-  std::string ret;
-  ret.reserve(128);
-
-  //return type is void
-  ret += "void ";
-  if (!prefix.empty()) ret += prefix;
-  ret += "async_";
-  ret += tfunction->get_name();
-
-  ret += "(";
-
-  //first argument is the return value if it is not "void"
-  if (!ret_type->is_void())
-  {
-    ret += type_name(ret_type);
-    ret += "& _return, ";
-  }
-
-  //the following is the argument list
-  if (!arglist->get_members().empty())
-  {
-    ret += argument_list(arglist, name_params);
-    ret += ", ";
-  }
-
-  ret += "AsyncRPCCallback callback";
-
-  ret += ")";
-
-  return ret;
-}
-
-void t_cpp_generator::generate_async_client(t_service* tservice)
-{
-  string svcname = tservice->get_name();
-  string class_name = svcname + "Client";
-  string async_name = "Async" + svcname;
-  string async_class_name = "Async" + svcname + "Client";
-
-  string f_async_header_name = get_out_dir() + async_name + ".h";
-  string f_async_service_name = get_out_dir() + async_name + ".cpp";
-
-  f_async_header_.open(f_async_header_name.c_str());
-  f_async_service_.open(f_async_service_name.c_str());
-
-  f_async_header_ << autogen_comment();
-  f_async_header_ <<
-    "#ifndef " << async_name << "_H" << endl <<
-    "#define " << async_name << "_H" << endl << endl <<
-    "#include <AsyncThriftClient.h>//add include path to CPPFLAGS(-Ixxx)" << endl <<
-    "#include \"" << get_include_prefix(*get_program()) << svcname << ".h\"" << endl << endl;
-  f_async_header_ << ns_open_ << endl << endl;
-
-  f_async_service_ << autogen_comment();
-
-  f_async_service_ <<
-    "#include <boost/bind.hpp>" << endl;
-  f_async_service_ <<
-    "#include \"" << get_include_prefix(*get_program()) << async_name << ".h\"" << endl << endl <<
-    ns_open_ << endl << endl;
-
-  indent_up();
-  //class header(.h)
-  f_async_header_ <<
-    "class " << async_class_name << " : public ::apache::thrift::async::AsyncThriftClient, public " << svcname << "If {" << endl <<
-    "public:" << endl;
-
-  //ctor and dtor(.h)
-  f_async_header_ <<
-    indent() << async_class_name << "();" << endl <<
-    indent() << "explicit " << async_class_name << "(const boost::shared_ptr<boost::asio::ip::tcp::socket> socket);" << endl <<
-    indent() << "virtual ~" << async_class_name << "();" << endl << endl;
-
-  //thrift function(.h)
-  vector<string> function_op_enums;
-  vector<t_function*> functions = tservice->get_functions();
-  for (size_t i=0; i<functions.size(); i++)
-  {
-    t_function * function = functions[i];
-
-    //async RPC
-    indent(f_async_header_) <<
-      async_function_signature(function) << ";" << endl;
-    function_op_enums.push_back("kasync_" + function->get_name());
-
-    //sync RPC
-    f_async_header_ <<
-      indent() << "virtual " << function_signature(function) << ";" << endl;
-  }
-  f_async_header_ << endl;
-
-  //enum kAsyncOPType(.h)
-  f_async_header_ <<
-    "protected:" << endl <<
-    indent() << "enum kAsyncOPType {" << endl;
-  indent_up();
-  f_async_header_ <<
-    indent() << "kNone = 0," << endl;
-  for (size_t i=0; i<function_op_enums.size(); i++)
-  {
-    f_async_header_ <<
-      indent() << function_op_enums[i] << "," << endl;
-  }
-  indent_down();
-  f_async_header_ <<
-    indent() << "};" << endl << endl;
-
-  //key virtual function: fill_result(.h)
-  f_async_header_ <<
-    "protected:" << endl <<
-    indent() << "virtual void fill_result(AsyncOp& op);" << endl << endl;
-
-  f_async_header_ <<
-    "protected:" << endl <<
-    indent() << "boost::shared_ptr<" << class_name << "> client_;" << endl;
-
-  //class end(.h)
-  f_async_header_ <<
-    "};" << endl << endl;
-  indent_down();
-
-
-  //ctor and dtor(.cpp)
-  indent_up();
-  f_async_service_ <<
-    async_class_name << "::" << async_class_name << "() : AsyncThriftClient() {" << endl;
-  f_async_service_ <<
-    indent() << "client_.reset(new " << class_name << "(input_proto_, output_proto_));" << endl;
-  f_async_service_ << "}" << endl << endl;
-
-  f_async_service_ <<
-    async_class_name << "::" << async_class_name << "(const boost::shared_ptr<boost::asio::ip::tcp::socket> socket) : AsyncThriftClient(socket) {" << endl;
-  f_async_service_ <<
-    indent() << "client_.reset(new " << class_name << "(input_proto_, output_proto_));" << endl;
-  f_async_service_ << "}" << endl << endl;
-
-  f_async_service_ <<
-    async_class_name << "::~" << async_class_name << "() {}" << endl << endl;
-
-  //thrift function(.cpp)
-  for (size_t i=0; i<functions.size(); i++)
-  {
-    t_function * function = functions[i];
-    t_type * ret_type = function->get_returntype();
-
-    //async RPC
-    f_async_service_ <<
-      async_function_signature(function, async_class_name + "::") << " {" << endl;
-
-    f_async_service_ <<
-      indent() << "if (!is_open())" << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "boost::system::error_code ec(boost::system::posix_error::not_connected, boost::system::get_posix_category());"
-      << endl << endl;
-    indent_down();
-
-    f_async_service_ <<
-      indent() << "set_rpc_timer();" << endl <<
-      indent() << "uint32_t out_frame_size;" << endl <<
-      indent() << "uint8_t * out_frame;" << endl <<
-      indent() << "boost::system::error_code ec;" << endl << endl;
-
-    f_async_service_ <<
-      indent() << "boost::shared_ptr<AsyncOp> op(new AsyncOp);" << endl <<
-      indent() << "async_op_list_.push_back(op);" << endl <<
-      indent() << "op->callback = callback;" << endl <<
-      indent() << "op->rpc_type = " << function_op_enums[i] << ";" << endl;
-
-    if (!ret_type->is_void())
-      f_async_service_ <<
-      indent() << "op->_return = static_cast<void*>(&_return);" << endl;
-    else
-      f_async_service_ <<
-      indent() << "op->_return = NULL;" << endl;
-
-    if (function->is_oneway())
-      f_async_service_ <<
-      indent() << "op->is_oneway = true;" << endl << endl;
-    else
-      f_async_service_ <<
-      indent() << "op->is_oneway = false;" << endl << endl;
-
-    f_async_service_ <<
-      indent() << "pending_async_op_ = op;" << endl << endl;
-
-    const vector<t_field*>& args = function->get_arglist()->get_members();
-    string arg_string;
-    for (size_t i=0; i<args.size(); i++)
-    {
-      arg_string += args[i]->get_name();
-      if (i != args.size()-1)
-        arg_string += ", ";
-    }
-
-    f_async_service_ <<
-      indent() << "output_buffer_->resetBuffer();" << endl <<
-      indent() << "client_->send_" << function->get_name() << "(" << arg_string <<");//shall not throw" << endl <<
-      indent() << "output_buffer_->getBuffer(&out_frame, &out_frame_size);" << ";" << endl << endl;
-
-    //async_write
-    f_async_service_ <<
-      indent() << "if (strand_)" << endl;
-
-    indent_up();
-    f_async_service_ <<
-      indent() << "boost::asio::async_write(*socket_," << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "boost::asio::buffer(out_frame, out_frame_size)," << endl;
-    f_async_service_ <<
-      indent() << "boost::asio::transfer_all()," << endl;
-    f_async_service_ <<
-      indent() << "strand_->wrap(boost::bind(&" << async_class_name << "::handle_write, this, " <<
-      "_1, _2)));" << endl;
-    indent_down();
-    indent_down();
-
-    f_async_service_ <<
-      indent() << "else" << endl;
-
-    indent_up();
-    f_async_service_ <<
-      indent() << "boost::asio::async_write(*socket_," << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "boost::asio::buffer(out_frame, out_frame_size)," << endl;
-    f_async_service_ <<
-      indent() << "boost::asio::transfer_all()," << endl;
-    f_async_service_ <<
-      indent() << "boost::bind(&" << async_class_name << "::handle_write, this, " <<
-      "_1, _2));" << endl;
-    indent_down();
-    indent_down();
-    //end of async_write
-
-    f_async_service_ << "}" << endl << endl;
-
-    //sync RPC
-    f_async_service_ <<
-      function_signature(function, async_class_name + "::") << " {" << endl;
-
-    f_async_service_ <<
-      indent() << "using ::apache::thrift::GlobalOutput;" << endl << endl;
-
-    f_async_service_ <<
-      indent() << "if (!is_open())" << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "boost::system::error_code ec(boost::system::posix_error::not_connected, boost::system::get_posix_category());"
-      << endl << endl;
-    indent_down();
-
-    f_async_service_ <<
-      indent() << "uint32_t out_frame_size;" << endl <<
-      indent() << "uint8_t * out_frame;" << endl <<
-      indent() << "boost::system::error_code ec;" << endl << endl;
-
-    f_async_service_ <<
-      indent() << "output_buffer_->resetBuffer();" << endl <<
-      indent() << "client_->send_" << function->get_name() << "(" << arg_string <<");//shall not throw" << endl <<
-      indent() << "output_buffer_->getBuffer(&out_frame, &out_frame_size);" << ";" << endl << endl;
-
-    f_async_service_ <<
-      indent() << "boost::asio::write(*socket_," << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "boost::asio::buffer(out_frame, out_frame_size)," << endl <<
-      indent() << "boost::asio::transfer_all(), ec);" << endl << endl;
-    indent_down();
-
-    f_async_service_ <<
-      indent() << "if (ec) {" << endl;
-    indent_up();
-    f_async_service_ <<
-      indent() << "close();" << endl <<
-      indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
-      indent() << "throw ec;" << endl;
-    indent_down();
-    f_async_service_ <<
-      indent() << "}" << endl;
-
-    if (!function->is_oneway())
-    {
-      f_async_service_ << endl;
-
-      f_async_service_ <<
-        indent() << "std::vector<uint8_t> frame(sizeof(int32_t));" << endl <<
-        indent() << "boost::asio::read(*socket_, boost::asio::buffer(frame), boost::asio::transfer_all(), ec);" << endl <<
-        indent() << "get_frame_size();" << endl << endl <<
-        indent() << "if (frame_size_ <= 0) {" << endl;
-      indent_up();
-      f_async_service_ <<
-        indent() << "close();" << endl <<
-        indent() << "GlobalOutput.printf(\"%s frame size <= 0: %d\", __FUNCTION__, frame_size_);" << endl <<
-        indent() << "throw ::apache::thrift::transport::TTransportException(\"frame size <= 0\");" << endl;
-      indent_down();
-      f_async_service_ <<
-        indent() << "}" << endl << endl;
-
-      f_async_service_ <<
-        indent() << "frame.resize(sizeof(int32_t) + frame_size_);" << endl <<
-        indent() << "boost::asio::read(*socket_, boost::asio::buffer(&frame[0] + sizeof(int32_t), frame_size_), boost::asio::transfer_all(), ec);" << endl << endl <<
-        indent() << "if (ec) {" << endl;
-      indent_up();
-      f_async_service_ <<
-        indent() << "close();" << endl <<
-        indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
-        indent() << "throw ec;" << endl;
-      indent_down();
-      f_async_service_ <<
-        indent() << "}" << endl << endl;
-
-      f_async_service_ <<
-        indent() << "input_buffer_->resetBuffer(&frame[0], frame.size());" << endl << endl;
-
-      if (is_complex_type(ret_type))
-      {
-        f_async_service_ <<
-          indent() << "client_->recv_" << function->get_name() << "(_return);//shall not throw" << endl;
-      }
-      else if (!ret_type->is_void())
-      {
-        f_async_service_ <<
-          indent() << "return client_->recv_" << function->get_name() << "();//shall not throw" << endl;
-      }
-      else
-      {
-        f_async_service_ <<
-          indent() << "client_->recv_" << function->get_name() << "();//shall not throw" << endl;
-      }
-    }
-
-    f_async_service_ <<
-      "}" << endl << endl;
-  }
-
-  //key virtual function: fill_result(.cpp)
-  f_async_service_ <<
-    "void " << async_class_name << "::fill_result(AsyncOp& op) {" << endl;
-
-  f_async_service_ <<
-    indent() << "switch (op.rpc_type) {" << endl;
-
-  for (size_t i=0; i<functions.size(); i++)
-  {
-    t_function * function = functions[i];
-    t_type * ret_type = function->get_returntype();
-
-    if (!ret_type->is_void())//including oneway
-    {
-      f_async_service_ <<
-        indent() << "case " << function_op_enums[i] << ":" << endl;
-      indent_up();
-      if (is_complex_type(ret_type))
-      {
-        f_async_service_ <<
-          indent() << "client_->recv_" << function->get_name() <<
-          "(*(static_cast<" << type_name(ret_type) << "*>(op._return)));//shall not throw" << endl <<
-          indent() << "break;" << endl;
-      }
-      else
-      {
-        f_async_service_ <<
-          indent() << "(*(static_cast<" << type_name(ret_type) << "*>(op._return))) = client_->recv_"
-          << function->get_name() << "();//shall not throw" << endl <<
-          indent() << "break;" << endl;
-      }
-      indent_down();
-    }
-  }
-
-  f_async_service_ <<
-    indent() << "}" << endl;
-
-  f_async_service_ << "}" << endl << endl;
-  indent_down();
-
-
-  // Close the namespace
-  f_async_service_ << ns_close_ << endl << endl;
-  f_async_header_ << ns_close_ << endl << endl;
-  f_async_header_ << "#endif" << endl;
-
-  f_async_service_.close();
-  f_async_header_.close();
+  generate_async(tservice);
 }
 
 /**
@@ -3437,6 +3050,7 @@ string t_cpp_generator::get_include_prefix(const t_program& program) const {
   return "";
 }
 
+#include "t_cpp_generator.cc.inl"
 
 THRIFT_REGISTER_GENERATOR(cpp, "C++",
 "    pure_enums:      Generate pure enums instead of wrapper classes.\n"

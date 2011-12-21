@@ -1,5 +1,5 @@
 /** @file
-* @brief
+* @brief common headers and type definitions
 * @author yafei.zhang@langtaojin.com
 * @date
 * @version
@@ -9,10 +9,10 @@
 #define ASYNC_COMMON_H
 
 #include <assert.h>
-#include <stdint.h>
 
 #include <vector>
 #include <string>
+#include <exception>
 
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
@@ -20,12 +20,13 @@
 #include <boost/function.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/cstdint.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/thread.hpp>
-#include <boost/weak_ptr.hpp>
 
 #include <Thrift.h>
 #include <TProcessor.h>
+#include <TApplicationException.h>
 #include <protocol/TProtocol.h>
 #include <protocol/TBinaryProtocol.h>
 #include <server/TServer.h>
@@ -34,8 +35,18 @@
 
 namespace apache { namespace thrift { namespace async {
 
+  using boost::uint8_t;
+  using boost::uint16_t;
+  using boost::uint32_t;
+  using boost::uint64_t;
+  using boost::int8_t;
+  using boost::int16_t;
+  using boost::int32_t;
+  using boost::int64_t;
+
   using ::apache::thrift::GlobalOutput;
   using ::apache::thrift::TProcessor;
+  using ::apache::thrift::TApplicationException;
   using ::apache::thrift::protocol::TProtocol;
   using ::apache::thrift::protocol::TBinaryProtocol;
   using ::apache::thrift::server::TServer;
@@ -44,7 +55,7 @@ namespace apache { namespace thrift { namespace async {
   using ::apache::thrift::transport::TTransportException;
 
   typedef boost::function<void (const boost::system::error_code& ec)> AsyncRPCCallback;
-  typedef boost::function<void (const boost::system::error_code& ec)> AsyncProcessorCallback;
+  typedef boost::function<void (const boost::system::error_code& ec, bool)> AsyncProcessorCallback;
 
 } } } // namespace
 

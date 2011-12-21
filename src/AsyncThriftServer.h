@@ -1,5 +1,5 @@
 /** @file
-* @brief
+* @brief semi-asynchronous thrift server(using TProcessor)
 * @author yafei.zhang@langtaojin.com
 * @date
 * @version
@@ -9,36 +9,75 @@
 #define ASYNC_THRIFT_SERVER_H
 
 #include "AsyncThriftServerBase.h"
+#include "io_service_pool.h"
 
 namespace apache { namespace thrift { namespace async {
 
   /*
-  * AsyncThriftServer(using TFramedTransport, TBinaryProtocol)
+  * AsyncThriftServer_SingleIOService(using TFramedTransport, TBinaryProtocol)
   *
   * socket layer asynchronous
   * RPC synchronous
+  *
+  * a single io_service and a thread pool calling io_service::run()
   */
-  class AsyncThriftServer : public AsyncThriftServerBase
+  class AsyncThriftServer_SingleIOService : public AsyncThriftServerBase
   {
   protected:
-    AsyncThriftServer(
+    boost::shared_ptr<TProcessor> processor_;
+
+  public:
+    AsyncThriftServer_SingleIOService(
       const boost::shared_ptr<TProcessor>& processor,
       const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
       size_t thread_pool_size,
       size_t max_client);
 
+    static boost::shared_ptr<AsyncThriftServerBase> create_server(
+      const boost::shared_ptr<TProcessor>& processor,
+      const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
+      size_t thread_pool_size,
+      size_t max_client);
+
+  protected:
+    virtual ConnectionSP create_connection();
+  };
+
+  /************************************************************************/
+  /*
+  * AsyncThriftServer_IOServicePerThread(using TFramedTransport, TBinaryProtocol)
+  *
+  * socket layer asynchronous
+  * RPC synchronous
+  *
+  * an io_service-per-thread
+  */
+  class AsyncThriftServer_IOServicePerThread : public AsyncThriftServerBase
+  {
+  protected:
+    boost::shared_ptr<TProcessor> processor_;
+    io_service_pool io_service_pool_;
+
   public:
-    static boost::shared_ptr<AsyncThriftServer> create_server(
+    AsyncThriftServer_IOServicePerThread(
+      const boost::shared_ptr<TProcessor>& processor,
+      const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
+      size_t thread_pool_size,
+      size_t max_client);
+
+    static boost::shared_ptr<AsyncThriftServerBase> create_server(
       const boost::shared_ptr<TProcessor>& processor,
       const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
       size_t thread_pool_size,
       size_t max_client);
 
     virtual void serve();
-
+    virtual void stop();
   protected:
-    boost::shared_ptr<TProcessor> processor_;
+    virtual ConnectionSP create_connection();
   };
+
+  typedef AsyncThriftServer_IOServicePerThread AsyncThriftServer;
 
 } } } // namespace
 

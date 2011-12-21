@@ -14,8 +14,9 @@
 #include <concurrency/PosixThreadFactory.h>
 #include <transport/TServerSocket.h>
 #include <transport/TBufferTransports.h>
-#include "AsyncThriftServer.h"
-#include "EchoServer.h"
+#include <AsyncThriftServer.h>
+#include <AsyncThriftServerEx.h>
+#include "gen-cpp/AsyncEchoServer.h"
 
 using namespace ::apache::thrift;
 using namespace ::apache::thrift::protocol;
@@ -25,18 +26,29 @@ using namespace ::apache::thrift::concurrency;
 using namespace ::apache::thrift::async;
 using namespace com::langtaojin::adgaga;
 
-class EchoServerHandler : virtual public EchoServerNull {
-public:
-  EchoServerHandler() {
-    // Your initialization goes here
-  }
 
-  void echo(Response& _return, const Request& request) {
-    // Your implementation goes here
+class EchoServerHandler : public EchoServerNull
+{
+public:
+  void echo(Response& _return, const Request& request)
+  {
     _return.__isset.message = true;
     _return.message = request.message;
   }
 };
+
+
+class AsyncEchoServerHandler : public AsyncEchoServerNull
+{
+public:
+  virtual void async_echo(Response& _return, const Request& request, ::apache::thrift::async::AsyncRPCCallback callback)
+  {
+    _return.__isset.message = true;
+    _return.message = request.message;
+    callback(boost::system::error_code());
+  }
+};
+
 
 static boost::shared_ptr<TServer> s_server;
 
@@ -55,8 +67,8 @@ int main(int argc, char **argv)
     desc.add_options()
       ("help", "produce help message")
       ("port,p", po::value<int>()->default_value(12500), "listening port")
-      ("server-model,s", po::value<std::string>()->default_value("asio"), "server model: asio, threaded, threadpool")
-      ("threadpool-size,t", po::value<int>()->default_value(128), "thread pool size(only for asio/threadpool model)");
+      ("server-model,s", po::value<std::string>()->default_value("asio"), "server model: async, asio, threaded, threadpool")
+      ("threadpool-size,t", po::value<int>()->default_value(32), "thread pool size(only for async/asio/threadpool model)");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -72,10 +84,12 @@ int main(int argc, char **argv)
     std::string server_model = vm["server-model"].as<std::string>();
     int threadpool_size = vm["threadpool-size"].as<int>();
 
+    signal(SIGINT, signal_handler);
+
     boost::shared_ptr<EchoServerHandler> handler(new EchoServerHandler());
     boost::shared_ptr<TProcessor> processor(new EchoServerProcessor(handler));
-
-    signal(SIGINT, signal_handler);
+    boost::shared_ptr<AsyncEchoServerHandler> async_handler(new AsyncEchoServerHandler());
+    boost::shared_ptr<AsyncProcessor> async_processor(new AsyncEchoServerProcessor(async_handler));
 
     if (server_model == "threaded")
     {
@@ -110,6 +124,25 @@ int main(int argc, char **argv)
         thread_manager));
 
       thread_manager->start();
+      s_server->serve();
+      s_server.reset();
+    }
+    else if (server_model == "async")
+    {
+      std::cout << "AsyncThriftServerEx" << std::endl;
+
+      boost::asio::io_service io_service;
+      boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor(new boost::asio::ip::tcp::acceptor(io_service));
+
+      boost::asio::ip::tcp::endpoint endpoint(
+        boost::asio::ip::address::from_string("127.0.0.1"), port);
+      acceptor->open(endpoint.protocol());
+      boost::asio::socket_base::reuse_address option(true);
+      acceptor->set_option(option);
+      acceptor->bind(endpoint);
+      acceptor->listen();
+
+      s_server = AsyncThriftServerEx::create_server(async_processor, acceptor, threadpool_size, 0);
       s_server->serve();
       s_server.reset();
     }

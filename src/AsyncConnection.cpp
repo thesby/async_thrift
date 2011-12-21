@@ -1,5 +1,5 @@
 /** @file
-* @brief
+* @brief basic asynchronous connection
 * @author yafei.zhang@langtaojin.com
 * @date
 * @version
@@ -19,40 +19,17 @@ namespace apache { namespace thrift { namespace async {
     :io_service_(&io_service)
   {
     socket_.reset(new boost::asio::ip::tcp::socket(io_service));
-    //strand_.reset(new boost::asio::io_service::strand(get_io_service()));
     common_init();
   }
 
   AsyncConnection::AsyncConnection(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
     :io_service_(&socket->get_io_service()), socket_(socket)
   {
-    //strand_.reset(new boost::asio::io_service::strand(get_io_service()));
     common_init();
-  }
-
-  void AsyncConnection::common_init()
-  {
-    recv_buffer_.resize(kBufferSize);
-    bytes_recv_ = 0;
-    frame_size_ = 0;
-    state_ = kReadFrameSize;
-
-    input_buffer_.reset(new TMemoryBuffer);
-    output_buffer_.reset(new TMemoryBuffer);
-    input_framed_.reset(new TFramedTransport(input_buffer_));
-    output_framed_.reset(new TFramedTransport(output_buffer_));
-    input_proto_.reset(new TBinaryProtocol(input_framed_));
-    output_proto_.reset(new TBinaryProtocol(output_framed_));
   }
 
   AsyncConnection::~AsyncConnection()
   {
-    if (socket_)
-    {
-      boost::system::error_code ec;
-      socket_->close(ec);
-      socket_.reset();
-    }
   }
 
   bool AsyncConnection::is_open()const
@@ -62,10 +39,26 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncConnection::close()
   {
-    on_close(0);
+    if (socket_)
+    {
+      io_service_ = 0;
+      boost::system::error_code ec;
+      socket_->close(ec);//close it manually
+      socket_.reset();
+      strand_.reset();
+    }
   }
 
-  void AsyncConnection::attach(const boost::shared_ptr<boost::asio::ip::tcp::socket> socket)
+  void AsyncConnection::cancel()
+  {
+    if (socket_)
+    {
+      boost::system::error_code ec;
+      socket_->cancel(ec);
+    }
+  }
+
+  void AsyncConnection::attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
   {
     on_attach(socket);
   }
@@ -124,11 +117,33 @@ namespace apache { namespace thrift { namespace async {
     }
   }
 
+  void AsyncConnection::common_init()
+  {
+    recv_buffer_.resize(kBufferSize);
+    bytes_recv_ = 0;
+    frame_size_ = 0;
+    state_ = kReadFrameSize;
+
+    input_buffer_.reset(new TMemoryBuffer);
+    output_buffer_.reset(new TMemoryBuffer);
+    input_framed_.reset(new TFramedTransport(input_buffer_));
+    output_framed_.reset(new TFramedTransport(output_buffer_));
+    input_proto_.reset(new TBinaryProtocol(input_framed_));
+    output_proto_.reset(new TBinaryProtocol(output_framed_));
+  }
+
+  void AsyncConnection::get_frame_size()
+  {
+    assert(recv_buffer_.size() >= sizeof(uint32_t));
+    frame_size_ = *(reinterpret_cast<const uint32_t*>(&recv_buffer_[0]));
+    frame_size_ = ntohl(frame_size_);
+  }
+
   void AsyncConnection::start_write_output_buffer()
   {
     uint32_t out_frame_size;
     uint8_t * out_frame;
-    output_buffer_->getBuffer(&out_frame, &out_frame_size);
+    output_buffer_->getBuffer(&out_frame, &out_frame_size);//not throw
 
     if (strand_)
     {
@@ -144,13 +159,6 @@ namespace apache { namespace thrift { namespace async {
         boost::asio::transfer_all(),//transfer_all
         boost::bind(&AsyncConnection::handle_write, shared_from_this(), _1, _2));
     }
-  }
-
-  void AsyncConnection::get_frame_size()
-  {
-    assert(recv_buffer_.size() >= sizeof(uint32_t));
-    frame_size_ = *(reinterpret_cast<const uint32_t*>(&recv_buffer_[0]));
-    frame_size_ = ntohl(frame_size_);
   }
 
   void AsyncConnection::handle_read(const boost::system::error_code& ec, size_t bytes_transferred)
@@ -176,7 +184,6 @@ namespace apache { namespace thrift { namespace async {
         if (frame_size_ >= kMaxFrameSize || frame_size_ == 0)
         {
           GlobalOutput.printf("illegal frame size: %u", frame_size_);
-          close();
           return;
         }
 
@@ -210,24 +217,17 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncConnection::on_close(const boost::system::error_code * ec)
   {
-    if (socket_)
-    {
-      boost::system::error_code ec;
-      socket_->close(ec);
-      socket_.reset();
-
-      strand_.reset();
-    }
   }
 
-  void AsyncConnection::on_attach(const boost::shared_ptr<boost::asio::ip::tcp::socket> socket)
+  void AsyncConnection::on_attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
   {
-    close();
     assert(socket);
+
+    close();
 
     io_service_ = &socket->get_io_service();
     socket_ = socket;
-    //strand_.reset(new boost::asio::io_service::strand(get_io_service()));
+    strand_.reset();
   }
 
   void AsyncConnection::on_detach()
@@ -236,40 +236,34 @@ namespace apache { namespace thrift { namespace async {
       return;
 
     io_service_ = 0;
-    //strand_.reset();
     socket_.reset();
+    strand_.reset();
   }
 
-  void AsyncConnection::on_handle_read(const boost::system::error_code& ec, size_t bytes_transferred)
+  void AsyncConnection::on_handle_read(
+    const boost::system::error_code& ec, size_t bytes_transferred)
   {
     if (ec)
-    {
-      on_close(&ec);
       return;
-    }
 
     bytes_recv_ += bytes_transferred;
     assert(bytes_recv_ <= recv_buffer_.size());
-
     handle_buffer();
   }
 
-  void AsyncConnection::on_handle_write(const boost::system::error_code& ec, size_t bytes_transferred)
+  void AsyncConnection::on_handle_write(
+    const boost::system::error_code& ec, size_t bytes_transferred)
   {
     if (ec)
-    {
-      on_close(&ec);
       return;
-    }
 
     assert(bytes_recv_ >= frame_size_+sizeof(uint32_t));
-
     if (bytes_recv_ == frame_size_+sizeof(uint32_t))
     {
       //buffer is empty, restart
       start_recv(true);
     }
-    else//if (bytes_recv_ > frame_size_+sizeof(uint32_t))
+    else
     {
       //consume the previous frame buffer, and handle the buffer remained
       memcpy(&recv_buffer_[0], &recv_buffer_[frame_size_+sizeof(uint32_t)],
@@ -282,6 +276,15 @@ namespace apache { namespace thrift { namespace async {
   }
 
   void AsyncConnection::on_handle_frame()
+  {
+  }
+
+  void AsyncConnection::async_process(const boost::system::error_code& ec, bool is_oneway)
+  {
+    on_async_process(ec, is_oneway);
+  }
+
+  void AsyncConnection::on_async_process(const boost::system::error_code& ec, bool is_oneway)
   {
   }
 

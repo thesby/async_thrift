@@ -2,5 +2,6 @@
 *.a
 client
 server
+perf_test
 gen-cpp
 .sconsign.dblite

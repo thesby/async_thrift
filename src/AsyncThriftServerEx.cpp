@@ -1,95 +1,59 @@
 /** @file
-* @brief
+* @brief full asynchronous thrift server(using AsyncProcessor)
 * @author yafei.zhang@langtaojin.com
 * @date
 * @version
 *
 */
-#include <assert.h>
-#include <boost/bind.hpp>
-#include <boost/weak_ptr.hpp>
-#include <Thrift.h>
-#include <AsyncConnection.h>
 #include <AsyncThriftServerEx.h>
 
 namespace apache { namespace thrift { namespace async {
 
-  class Connection : public AsyncServerConnection
+  namespace
   {
-  protected:
-    boost::shared_ptr<AsyncProcessor> processor_;
-
-  public:
-    Connection(boost::asio::io_service& io_service,
-      const boost::shared_ptr<AsyncThriftServerBase>& parent,
-      const boost::shared_ptr<AsyncProcessor>& processor)
-      :AsyncServerConnection(io_service, parent), processor_(processor)
+    class Connection : public AsyncConnection
     {
-    }
+    private:
+      boost::shared_ptr<AsyncProcessor> processor_;
 
-  protected:
-    virtual void on_handle_frame()
-    {
-      try
+    public:
+      Connection(boost::asio::io_service& io_service,
+        const boost::shared_ptr<AsyncProcessor>& processor)
+        :AsyncConnection(io_service), processor_(processor)
       {
-        processor_->process(
-          boost::bind(&Connection::callback,
-          boost::dynamic_pointer_cast<Connection, AsyncConnection>(shared_from_this()), _1),
-          input_proto_, output_proto_);
-      }
-      catch (...)
-      {
-        GlobalOutput.printf("caught an exception in Processor::process");
-        close();
-        return;
-      }
-    }
-
-    void callback(const boost::system::error_code& ec)
-    {
-      if (ec)
-      {
-        on_close(&ec);
-        return;
       }
 
-      if (!is_open())
+    protected:
+      virtual void on_handle_frame()
       {
-        close();
-        return;
+        try
+        {
+          processor_->process(
+            input_proto_, output_proto_,
+            boost::bind(&Connection::async_process, shared_from_this(), _1, _2));//may throw
+        }
+        catch (std::exception& e)
+        {
+          GlobalOutput.printf("caught an exception in AsyncProcessor::process: %s", e.what());
+          return;
+        }
       }
 
-      start_write_output_buffer();
-    }
-  };
+      void on_async_process(const boost::system::error_code& ec, bool is_oneway)
+      {
+        if (ec || !is_open())
+          return;
+
+        if (!is_oneway)
+          start_write_output_buffer();
+        else
+          start_recv(false);
+      }
+    };
+  }
 
   /************************************************************************/
-  class ConnectionFactory : public AsyncServerConnectionFactory
-  {
-  protected:
-    boost::shared_ptr<AsyncProcessor> processor_;
-
-  public:
-    ConnectionFactory(boost::asio::io_service& io_service,
-      const boost::shared_ptr<AsyncThriftServerBase>& server,
-      const boost::shared_ptr<AsyncProcessor>& processor)
-      :AsyncServerConnectionFactory(io_service, server), processor_(processor)
-    {
-    }
-
-    virtual ~ConnectionFactory()
-    {
-    }
-
-    virtual boost::shared_ptr<AsyncConnection> create()
-    {
-      return boost::shared_ptr<AsyncConnection>(
-        new Connection(io_service_, server_, processor_));
-    }
-  };
-
-  /************************************************************************/
-  AsyncThriftServerEx::AsyncThriftServerEx(
+  AsyncThriftServerEx_SingleIOService::AsyncThriftServerEx_SingleIOService(
     const boost::shared_ptr<AsyncProcessor>& processor,
     const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
     size_t thread_pool_size,
@@ -99,20 +63,64 @@ namespace apache { namespace thrift { namespace async {
   {
   }
 
-  boost::shared_ptr<AsyncThriftServerEx> AsyncThriftServerEx::create_server(
+  boost::shared_ptr<AsyncThriftServerBase> AsyncThriftServerEx_SingleIOService::create_server(
     const boost::shared_ptr<AsyncProcessor>& processor,
     const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
     size_t thread_pool_size,
     size_t max_client)
   {
-    return boost::shared_ptr<AsyncThriftServerEx>(
-      new AsyncThriftServerEx(processor, acceptor, thread_pool_size, max_client));
+    return boost::shared_ptr<AsyncThriftServerEx_SingleIOService>(
+      new AsyncThriftServerEx_SingleIOService(processor, acceptor, thread_pool_size, max_client));
   }
 
-  void AsyncThriftServerEx::serve()
+  AsyncThriftServerEx_SingleIOService::ConnectionSP AsyncThriftServerEx_SingleIOService::create_connection()
   {
-    conn_factory_.reset(new ConnectionFactory(get_io_service(), shared_from_this(), processor_));
-    AsyncThriftServerBase::serve();
+    return ConnectionSP(new Connection(get_io_service(), processor_));
+  }
+
+  /************************************************************************/
+  AsyncThriftServerEx_IOServicePerThread::AsyncThriftServerEx_IOServicePerThread(
+    const boost::shared_ptr<AsyncProcessor>& processor,
+    const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
+    size_t thread_pool_size,
+    size_t max_client)
+    :AsyncThriftServerBase(acceptor, thread_pool_size, max_client),
+    processor_(processor),
+    io_service_pool_(thread_pool_size)
+  {
+  }
+
+  boost::shared_ptr<AsyncThriftServerBase> AsyncThriftServerEx_IOServicePerThread::create_server(
+    const boost::shared_ptr<AsyncProcessor>& processor,
+    const boost::shared_ptr<boost::asio::ip::tcp::acceptor>& acceptor,
+    size_t thread_pool_size,
+    size_t max_client)
+  {
+    return boost::shared_ptr<AsyncThriftServerEx_IOServicePerThread>(
+      new AsyncThriftServerEx_IOServicePerThread(processor, acceptor, thread_pool_size, max_client));
+  }
+
+  void AsyncThriftServerEx_IOServicePerThread::serve()
+  {
+    get_io_service().reset();
+    async_accept();
+    boost::thread_group tg;
+    tg.create_thread(boost::bind(&boost::asio::io_service::run, &get_io_service()));
+
+    io_service_pool_.run();
+
+    tg.join_all();
+  }
+
+  void AsyncThriftServerEx_IOServicePerThread::stop()
+  {
+    get_io_service().stop();
+    io_service_pool_.stop();
+  }
+
+  AsyncThriftServerEx_IOServicePerThread::ConnectionSP AsyncThriftServerEx_IOServicePerThread::create_connection()
+  {
+    return ConnectionSP(new Connection(io_service_pool_.get_io_service(), processor_));
   }
 
 } } } // namespace
