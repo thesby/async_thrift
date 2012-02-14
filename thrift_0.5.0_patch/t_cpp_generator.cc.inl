@@ -451,7 +451,19 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
 
       f_async_service_ <<
         indent() << "recv_buffer_.resize(sizeof(int32_t));" << endl <<
-        indent() << "boost::asio::read(*socket_, boost::asio::buffer(recv_buffer_), boost::asio::transfer_all(), ec);" << endl <<
+        indent() << "boost::asio::read(*socket_, boost::asio::buffer(recv_buffer_), boost::asio::transfer_all(), ec);" << endl;
+      f_async_service_ <<
+        indent() << "if (ec) {" << endl;
+      indent_up();
+      f_async_service_ <<
+        indent() << "close();" << endl <<
+        indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
+        indent() << "throw ec;" << endl;
+      indent_down();
+      f_async_service_ <<
+        indent() << "}" << endl;
+
+      f_async_service_ <<
         indent() << "get_frame_size();" << endl << endl <<
         indent() << "if (frame_size_ <= 0) {" << endl;
       indent_up();

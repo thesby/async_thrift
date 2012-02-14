@@ -35,6 +35,27 @@ public:
     _return.__isset.message = true;
     _return.message = request.message;
   }
+  int32_t echo2(const int32_t i) {
+    return i;
+  }
+  void echo3(std::string& _return, const std::string& str) {
+    _return = str;
+  }
+  void echo4(std::string& /* _return */, const int32_t /* i1 */, const int64_t /* i2 */) {
+    return;
+  }
+  void void_func() {
+    return;
+  }
+  void void_func2(const Request& /* request */, const std::string& /* str */) {
+    return;
+  }
+  void oneway_func() {
+    return;
+  }
+  void oneway_func2(const Request& /* request */, const std::string& /* str */) {
+    return;
+  }
 };
 
 

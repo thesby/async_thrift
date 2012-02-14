@@ -31,6 +31,8 @@ namespace apache { namespace thrift { namespace async {
       return;
 
     io_service_ = 0;
+    boost::system::error_code _ec;
+    socket_->close(_ec);//close it manually
     socket_.reset();
     strand_.reset();
 
