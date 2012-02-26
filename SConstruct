@@ -1,11 +1,45 @@
 import os
 import os.path
+import sys
 
 env = Environment()
 env = env.Clone()
+
+def CheckBoost(context):
+    context.Message('Checking for C++ library boost...')
+    context.SetLIBS('boost_thread')
+    result = context.TryLink(
+    """
+    #include <boost/thread.hpp>
+    int main(int argc, char **argv){return 0;}
+    """, '.cpp')
+    context.Result(result)
+    return result
+
+def CheckThrift(context):
+    context.Message('Checking for C++ library Thrift...')
+    context.SetLIBS('thrift')
+    result = context.TryLink(
+    """
+    #include <thrift/Thrift.h>
+    int main(int argc, char **argv){return 0;}
+    """, '.cpp')
+    context.Result(result)
+    return result
+
+conf = Configure(env, custom_tests = {'CheckBoost':CheckBoost, 'CheckThrift':CheckThrift})
+conf.CheckCC()
+have_boost = conf.CheckBoost()
+have_thrift = conf.CheckThrift()
+if not have_boost:
+    print 'Error: no boost'
+    sys.exit()
+if not have_thrift:
+    print 'Error: no Thrift'
+    sys.exit()
+
 env.Append(CCFLAGS = Split('-Wall -g -O2'))
 env.Append(CPPPATH = Split('src fb303 /usr/local/include/thrift'))
-
 env.Append(LIBS = [
    File('/usr/local/lib/libthrift.a'),
    File('/usr/lib/libboost_thread.a'),
