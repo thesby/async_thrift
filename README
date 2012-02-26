@@ -1,5 +1,8 @@
 Asynchronous Thrift Extension for C++
 
+Author:
+zhangyafeikimi
+
 Features:
 1. generating asynchronous RPC client code
 2. full compatibility with the official thrift(both binary interface and RPC code)
@@ -7,7 +10,7 @@ Features:
 4. asynchronous thrift server
 
 
-Installation and Usage:
+Build and Installation:
 1. cp thrift_0.5.0_patch/t_cpp_generator.cc ${thrift}/compiler/cpp/src/generate/
 2. rebuild thrift compiler(only the sub-directory "compiler/cpp" is enough)
 3. re-compile your thrift files with the newly-compiled thrift compiler
@@ -16,9 +19,8 @@ Installation and Usage:
 
 Limitations:
 asynchronous thrift client and server must use TFramedTransport and TBinaryProtocol
-AsyncThriftServer does not support oneway functions
 
 
 TODO:
-support for thrift-0.7.0
-
+make stand-alone packages of async_thrift-0.5.0
+support for thrift-0.7.0(in another branch)
