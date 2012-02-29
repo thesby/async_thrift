@@ -22,6 +22,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/system/system_error.hpp>
 #include <boost/thread.hpp>
 
 #include <Thrift.h>

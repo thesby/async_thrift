@@ -37,6 +37,7 @@ if not have_boost:
 if not have_thrift:
     print 'Error: no Thrift'
     sys.exit()
+env = conf.Finish()
 
 env.Append(CCFLAGS = Split('-Wall -g -O2'))
 env.Append(CPPPATH = Split('src fb303 /usr/local/include/thrift'))

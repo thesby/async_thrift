@@ -440,7 +440,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
     f_async_service_ <<
       indent() << "close();" << endl <<
       indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
-      indent() << "throw ec;" << endl;
+      indent() << "throw boost::system::system_error(ec);" << endl;
     indent_down();
     f_async_service_ <<
       indent() << "}" << endl;
@@ -458,7 +458,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       f_async_service_ <<
         indent() << "close();" << endl <<
         indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
-        indent() << "throw ec;" << endl;
+        indent() << "throw boost::system::system_error(ec);" << endl;
       indent_down();
       f_async_service_ <<
         indent() << "}" << endl;
@@ -484,7 +484,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       f_async_service_ <<
         indent() << "close();" << endl <<
         indent() << "GlobalOutput.printf(\"%s caught an error code: %s\", __FUNCTION__, ec.message().c_str());" << endl <<
-        indent() << "throw ec;" << endl;
+        indent() << "throw boost::system::system_error(ec);" << endl;
       indent_down();
       f_async_service_ <<
         indent() << "}" << endl << endl;
