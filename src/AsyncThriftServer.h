@@ -1,5 +1,5 @@
 /** @file
-* @brief semi-asynchronous thrift server(using TProcessor)
+* @brief semi-asynchronous thrift server(aasynchronous IO/synchronous processor:TProcessor)
 * @author yafei.zhang@langtaojin.com
 * @date
 * @version

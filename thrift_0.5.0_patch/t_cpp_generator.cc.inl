@@ -1,9 +1,20 @@
-string t_cpp_generator::async_client_function_signature(t_function * tfunction,
-                                                        const string& prefix,
-                                                        bool name_params)
+/** @file
+* @brief extension for thrift c++ generator
+* @author zhangyafeikimi@gmail.com
+* @date
+* @version
+*
+* Portable
+*/
+#include <string.h>
+#include <algorithm>
+
+string t_cpp_generator::async_if_function_signature(t_function * function,
+                                                    const string& prefix,
+                                                    bool name_params)
 {
-  t_type * ret_type = tfunction->get_returntype();
-  t_struct * arglist = tfunction->get_arglist();
+  t_type * ret_type = function->get_returntype();
+  t_struct * arglist = function->get_arglist();
 
   string ret;
   ret.reserve(128);
@@ -13,57 +24,19 @@ string t_cpp_generator::async_client_function_signature(t_function * tfunction,
   if (!prefix.empty()) ret += prefix;
 
   ret += "async_";
-  ret += tfunction->get_name();
+  ret += function->get_name();
 
   ret += "(";
 
-  //the first argument is the return value if it is not "void"
+  //the first argument is the return value if it is not "void",
+  //which is different from the function 'function_signature'
   if (!ret_type->is_void())
   {
     ret += type_name(ret_type);
     ret += "& _return, ";
   }
 
-  //the following is the argument list
-  if (!arglist->get_members().empty())
-  {
-    ret += argument_list(arglist, name_params);
-    ret += ", ";
-  }
-
-  //the last argument is the callback
-  ret += "AsyncRPCCallback callback";
-
-  ret += ")";
-  return ret;
-}
-
-
-string t_cpp_generator::async_if_function_signature(t_function * tfunction, const string& prefix, bool name_params)
-{
-  t_type * ret_type = tfunction->get_returntype();
-  t_struct * arglist = tfunction->get_arglist();
-
-  string ret;
-  ret.reserve(128);
-
-  if (prefix.empty()) ret += "virtual ";
-  ret += "void ";//return type is void
-  if (!prefix.empty()) ret += prefix;
-
-  ret += "async_";
-  ret += tfunction->get_name();
-
-  ret += "(";
-
-  //the first argument is the return value if it is not "void"
-  if (!ret_type->is_void())
-  {
-    ret += type_name(ret_type);
-    ret += "& _return, ";
-  }
-
-  //the following is the argument list
+  //the following is the real argument list of the RPC function
   if (!arglist->get_members().empty())
   {
     ret += argument_list(arglist, name_params);
@@ -78,7 +51,7 @@ string t_cpp_generator::async_if_function_signature(t_function * tfunction, cons
 }
 
 
-string t_cpp_generator::async_process_function_signature(t_function * tfunction, const string& prefix)
+string t_cpp_generator::async_process_function_signature(t_function * function, const string& prefix)
 {
   string ret;
   ret.reserve(128);
@@ -86,7 +59,7 @@ string t_cpp_generator::async_process_function_signature(t_function * tfunction,
   ret += "void ";
   if (!prefix.empty()) ret += prefix;
   ret += "process_";
-  ret += tfunction->get_name();
+  ret += function->get_name();
 
   ret += "(";
   ret += "int32_t seqid, ";
@@ -98,7 +71,7 @@ string t_cpp_generator::async_process_function_signature(t_function * tfunction,
 }
 
 
-string t_cpp_generator::async_complete_function_signature(t_function * tfunction, const string& svcname, const string& prefix)
+string t_cpp_generator::async_complete_function_signature(t_function * function, const string& svcname, const string& prefix)
 {
   string ret;
   ret.reserve(128);
@@ -106,16 +79,16 @@ string t_cpp_generator::async_complete_function_signature(t_function * tfunction
   ret += "void ";
   if (!prefix.empty()) ret += prefix;
   ret += "complete_";
-  ret += tfunction->get_name();
+  ret += function->get_name();
 
   ret += "(";
   ret += "int32_t seqid, ";
   ret += "::apache::thrift::async::AsyncProcessorCallback callback, ";
   ret += "::apache::thrift::protocol::TProtocol * input_protocol, ";
   ret += "::apache::thrift::protocol::TProtocol * output_protocol, ";
-  ret += "boost::shared_ptr<" + svcname + "_" + tfunction->get_name() + "_args> " + tfunction->get_name() + "_args, ";
-  if (!tfunction->is_oneway())
-    ret += "boost::shared_ptr<" + svcname + "_" + tfunction->get_name() + "_result> " + tfunction->get_name() + "_result, ";
+  ret += "boost::shared_ptr<" + svcname + "_" + function->get_name() + "_args> " + function->get_name() + "_args, ";
+  if (!function->is_oneway())
+    ret += "boost::shared_ptr<" + svcname + "_" + function->get_name() + "_result> " + function->get_name() + "_result, ";
   ret += "const boost::system::error_code& ec";
   ret += ")";
   return ret;
@@ -125,35 +98,49 @@ string t_cpp_generator::async_complete_function_signature(t_function * tfunction
 void t_cpp_generator::generate_async(t_service* tservice)
 {
   string svcname = tservice->get_name();
-  string async_name = "Async" + svcname;
+  string async_svcname = "Async" + svcname;
   t_service * base_tservice = tservice->get_extends();
-  string base_async_name;
+  string async_base_svcname;
   if (base_tservice)
-    base_async_name = "Async" + base_tservice->get_name();
+    async_base_svcname = "Async" + base_tservice->get_name();
 
   //open .h and .cpp
-  string f_async_header_name = get_out_dir() + async_name + ".h";
-  string f_async_source_name = get_out_dir() + async_name + ".cpp";
+  string f_async_header_name = get_out_dir() + async_svcname + ".h";
+  string f_async_source_name = get_out_dir() + async_svcname + ".cpp";
   f_async_header_.open(f_async_header_name.c_str());
   f_async_service_.open(f_async_source_name.c_str());
 
   //.h
-  string macro_guard = async_name + "_H";
+  string macro_guard = async_svcname + "_H";
+  std::transform(macro_guard.begin(), macro_guard.end(), macro_guard.begin(), ::toupper);
+
+  //header comment
   f_async_header_ << autogen_comment();
+
+  //macro guard
   f_async_header_ << "#ifndef " << macro_guard << endl <<
-    "#define " << macro_guard << endl << endl;
+    "#define " << macro_guard << endl;
+  f_async_header_ << endl;
+
+  //include headers
   f_async_header_ << "#include <AsyncThriftClient.h>//add include path to CPPFLAGS(-Ixxx)" << endl;
   f_async_header_ << "#include <AsyncProcessor.h>//add include path to CPPFLAGS(-Ixxx)" << endl;
   f_async_header_ << "#include \"" << get_include_prefix(*get_program()) << svcname << ".h\"" << endl;
   if (base_tservice)
-    f_async_header_ << "#include \"" << get_include_prefix(*get_program()) << base_async_name << ".h\"" << endl;
+    f_async_header_ << "#include \"" << get_include_prefix(*get_program()) << async_base_svcname << ".h\"" << endl;
   f_async_header_ << endl;
-  f_async_header_ << ns_open_ << endl << endl;
+
+  //namespace
+  f_async_header_ << ns_open_ << endl;
+  f_async_header_ << endl;
 
   //.cpp
+  //header comment
   f_async_service_ << autogen_comment();
+
+  //include headers
   f_async_service_ << "#include <boost/bind.hpp>" << endl;
-  f_async_service_ << "#include \"" << get_include_prefix(*get_program()) << async_name << ".h\"" << endl << endl;
+  f_async_service_ << "#include \"" << get_include_prefix(*get_program()) << async_svcname << ".h\"" << endl << endl;
   f_async_service_ << ns_open_ << endl << endl;
 
 
@@ -178,12 +165,12 @@ void t_cpp_generator::generate_async(t_service* tservice)
 void t_cpp_generator::generate_async_client(t_service* tservice)
 {
   string svcname = tservice->get_name();
-  string async_name = "Async" + svcname;
   t_service * base_tservice = tservice->get_extends();
-  string base_async_name;
+  string async_base_svcname;
   if (base_tservice)
-    base_async_name = "Async" + base_tservice->get_name();
+    async_base_svcname = "Async" + base_tservice->get_name();
 
+  string if_class_name = svcname + "If";
   string client_class_name = svcname + "Client";
   string async_client_class_name = "Async" + svcname + "Client";
   string base_async_client_class_name;
@@ -197,7 +184,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
   //class AsyncClient header(.h)
   string client_base_class_name;
   f_async_header_ << "class " << async_client_class_name << endl;
-  f_async_header_ << indent() << ": virtual public " << svcname << "If," << endl;
+  f_async_header_ << indent() << ": virtual public " << if_class_name << "," << endl;
   if (base_tservice)
   {
     f_async_header_ << indent() << "public " <<
@@ -221,7 +208,8 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
   f_async_header_ << indent() <<
     "virtual ~" << async_client_class_name << "();" << endl << endl;
 
-  //function(.h)
+  //RPC function(.h)
+  //every RPC function is assigned to a enum value for internal usage
   vector<string> function_op_enums;
 
   for (size_t i=0; i<functions.size(); i++)
@@ -230,7 +218,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
 
     //async RPC
     indent(f_async_header_) <<
-      async_client_function_signature(function) << ";" << endl;
+      async_if_function_signature(function) << ";" << endl;
     function_op_enums.push_back("kasync_" + function->get_name());
 
     //sync RPC
@@ -311,7 +299,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
 
     //async RPC
     f_async_service_ <<
-      async_client_function_signature(function, async_client_class_name + "::") << " {" << endl;
+      async_if_function_signature(function, async_client_class_name + "::") << " {" << endl;
 
     f_async_service_ <<
       indent() << "if (!is_open())" << endl;
@@ -569,24 +557,29 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
 void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
 {
   string svcname = tservice->get_name();
-  string async_name = "Async" + svcname;
   t_service * base_tservice = tservice->get_extends();
-  string base_async_name;
+  string async_base_svcname;
   if (base_tservice)
-    base_async_name = "Async" + base_tservice->get_name();
+    async_base_svcname = "Async" + base_tservice->get_name();
 
 
+  string if_class_name = svcname + "If";
   string async_if_class_name = "Async" + svcname + "If";
   string async_null_if_class_name = "Async" + svcname + "Null";
+  string async_adapter_if_class_name = "Async" + svcname + "Adapter";
   string async_processor_class_name = "Async" + svcname + "Processor";
-  string base_if_client_class_name;
-  string base_null_if_client_class_name;
-  string base_processor_client_class_name;
+  string base_if_class_name;
+  string async_base_if_class_name;
+  string async_base_null_if_class_name;
+  string async_base_adapter_if_class_name;
+  string async_base_processor_class_name;
   if (base_tservice)
   {
-    base_if_client_class_name = "Async" + base_tservice->get_name() + "If";
-    base_null_if_client_class_name = "Async" + base_tservice->get_name() + "Null";
-    base_processor_client_class_name = "Async" + base_tservice->get_name() + "Processor";
+    base_if_class_name = base_tservice->get_name() + "If";
+    async_base_if_class_name = "Async" + base_tservice->get_name() + "If";
+    async_base_null_if_class_name = "Async" + base_tservice->get_name() + "Null";
+    async_base_adapter_if_class_name = "Async" + base_tservice->get_name() + "Adapter";
+    async_base_processor_class_name = "Async" + base_tservice->get_name() + "Processor";
   }
 
   vector<t_function*> functions = tservice->get_functions();
@@ -599,10 +592,14 @@ void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
   if (base_tservice)
   {
     f_async_header_ << indent() << ": virtual public " <<
-      namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << base_if_client_class_name << endl;
+      namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << async_base_if_class_name << endl;
   }
   f_async_header_ << "{" << endl;
   f_async_header_ << "public:" << endl;
+
+  //destructor
+  f_async_header_ << indent() << "virtual ~" << async_if_class_name << "() {}" << endl;
+  f_async_header_ << endl;
 
   //function(.h)
   for (size_t i=0; i<functions.size(); i++)
@@ -626,7 +623,7 @@ void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
   if (base_tservice)
   {
     f_async_header_ << "," << endl << indent() << "virtual public " <<
-      namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << base_null_if_client_class_name << endl;
+      namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << async_base_null_if_class_name << endl;
   }
   else
   {
@@ -635,19 +632,141 @@ void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
   f_async_header_ << "{" << endl;
   f_async_header_ << "public:" << endl;
 
+  //destructor
+  f_async_header_ << indent() << "virtual ~" << async_null_if_class_name << "() {}" << endl;
+  f_async_header_ << endl;
+
   //function(.h)
   for (size_t i=0; i<functions.size(); i++)
   {
     t_function * function = functions[i];
-    //async if
     f_async_header_ << indent() << async_if_function_signature(function) << " {"<< endl;
     indent_up();
     f_async_header_ << indent() << "callback(boost::system::error_code());" << endl;
     indent_down();
-    f_async_header_ << indent() << "}"<< endl << endl;
+    f_async_header_ << indent() << "}"<< endl;
+
+    if (i != functions.size() - 1)
+      f_async_header_ << endl;
   }
 
   //class AsyncNull end(.h)
+  f_async_header_ <<
+    "};" << endl << endl;
+  indent_down();
+
+  /************************************************************************/
+
+  indent_up();
+  f_async_header_ << "// This class is used to adapt a synchronous handler to an asynchronous one" << endl;
+  //class AsyncAdapter header(.h)
+  f_async_header_ << "class " << async_adapter_if_class_name << endl;
+  f_async_header_ << indent() << ": virtual public " << async_if_class_name;
+  if (base_tservice)
+  {
+    f_async_header_ << "," << endl << indent() << "virtual public " <<
+      namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << async_base_adapter_if_class_name << endl;
+  }
+  else
+  {
+    f_async_header_ << endl;
+  }
+  f_async_header_ << "{" << endl;
+
+  f_async_header_ << "private:" << endl;
+  f_async_header_ << indent() << "boost::shared_ptr<" << if_class_name << "> sync_if_;"<< endl;
+  f_async_header_ << endl;
+
+  f_async_header_ << "public:" << endl;
+
+  //constructor
+  f_async_header_ << indent() << "explicit " << async_adapter_if_class_name << "(const boost::shared_ptr<" << if_class_name << ">& sync_if)"<< endl;
+  indent_up();
+  if (base_tservice)
+  {
+    f_async_header_ << indent() << ": " << async_base_adapter_if_class_name
+      << "(boost::dynamic_pointer_cast<" << namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << base_if_class_name
+      << ", " << if_class_name << ">(sync_if))," << endl;
+
+    f_async_header_ << indent() << "sync_if_(sync_if)" << endl;
+  }
+  else
+  {
+    f_async_header_ << indent() << ": sync_if_(sync_if)" << endl;
+  }
+  indent_down();
+  f_async_header_ << indent() << "{}" << endl;
+
+  //destructor
+  f_async_header_ << indent() << "virtual ~" << async_adapter_if_class_name << "() {}" << endl;
+  f_async_header_ << endl;
+
+  //function(.h)
+  for (size_t i=0; i<functions.size(); i++)
+  {
+    t_function * function = functions[i];
+    t_type * ret_type = function->get_returntype();
+    t_struct * arglist = function->get_arglist();
+
+    f_async_header_ << indent() << async_if_function_signature(function) << " {"<< endl;
+    indent_up();
+
+    if (is_complex_type(ret_type))
+    {
+      f_async_header_ << indent() << "sync_if_->" << function->get_name() << "(";
+
+      f_async_header_ << "_return";
+      if (!arglist->get_members().empty())
+        f_async_header_ << ", ";
+
+      for (size_t j=0; j<arglist->get_members().size(); j++)
+      {
+        t_field * field = arglist->get_members()[j];
+        f_async_header_ << field->get_name();
+        if (j != arglist->get_members().size() - 1)
+          f_async_header_ << ", ";
+      }
+
+      f_async_header_ << ");" << endl;
+    }
+    else if (!ret_type->is_void())
+    {
+      f_async_header_ << indent() << "_return = sync_if_->" << function->get_name() << "(";
+
+      for (size_t j=0; j<arglist->get_members().size(); j++)
+      {
+        t_field * field = arglist->get_members()[j];
+        f_async_header_ << field->get_name();
+        if (j != arglist->get_members().size() - 1)
+          f_async_header_ << ", ";
+      }
+
+      f_async_header_ << ");" << endl;
+    }
+    else
+    {
+      f_async_header_ << indent() << "sync_if_->" << function->get_name() << "(";
+
+      for (size_t j=0; j<arglist->get_members().size(); j++)
+      {
+        t_field * field = arglist->get_members()[j];
+        f_async_header_ << field->get_name();
+        if (j != arglist->get_members().size() - 1)
+          f_async_header_ << ", ";
+      }
+
+      f_async_header_ << ");" << endl;
+    }
+
+    f_async_header_ << indent() << "callback(boost::system::error_code());" << endl;
+    indent_down();
+    f_async_header_ << indent() << "}"<< endl;
+
+    if (i != functions.size() - 1)
+      f_async_header_ << endl;
+  }
+
+  //class AsyncAdapter end(.h)
   f_async_header_ <<
     "};" << endl << endl;
   indent_down();
@@ -661,7 +780,7 @@ void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
   if (base_tservice)
   {
     f_async_header_ << "," << endl << indent() << "public " <<
-      namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << base_processor_client_class_name << endl;
+      namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << async_base_processor_class_name << endl;
   }
   else
   {
@@ -712,7 +831,7 @@ void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
   indent_up();
   if (base_tservice)
     f_async_header_ << indent() << ": " <<
-    namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << base_processor_client_class_name <<
+    namespace_prefix(base_tservice->get_program()->get_namespace("cpp")) << async_base_processor_class_name <<
     "(handler), handler_(handler) {" << endl;
   else
     f_async_header_ << indent() << ": handler_(handler) {" << endl;
@@ -746,7 +865,7 @@ void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
   indent_up();
   if (base_tservice)
   {
-    f_async_service_ << indent() << base_processor_client_class_name <<
+    f_async_service_ << indent() << async_base_processor_class_name <<
       "::process_fn(input_protocol, output_protocol, callback, fname, seqid);" << endl;
     f_async_service_ << indent() << "return;" << endl;
   }

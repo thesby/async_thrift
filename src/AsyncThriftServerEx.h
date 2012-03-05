@@ -1,5 +1,5 @@
 /** @file
-* @brief full asynchronous thrift server(using AsyncProcessor)
+* @brief asynchronous thrift server(asynchronous IO/asynchronous processor:AsyncProcessor)
 * @author yafei.zhang@langtaojin.com
 * @date
 * @version
