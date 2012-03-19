@@ -349,7 +349,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
     f_async_service_ <<
       indent() << "output_buffer_->resetBuffer();" << endl <<
       indent() << "client_->send_" << function->get_name() << "(" << arg_string <<");" << endl <<
-      indent() << "output_buffer_->getBuffer(&out_frame, &out_frame_size);" << ";" << endl << endl;
+      indent() << "output_buffer_->getBuffer(&out_frame, &out_frame_size);" << endl << endl;
 
     //async_write
     f_async_service_ <<

@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <string>
+#include <sstream>
 #include <exception>
 
 #include <boost/asio.hpp>
@@ -30,6 +31,7 @@
 #include <TApplicationException.h>
 #include <protocol/TProtocol.h>
 #include <protocol/TBinaryProtocol.h>
+#include <protocol/TProtocolException.h>
 #include <server/TServer.h>
 #include <transport/TBufferTransports.h>
 #include <transport/TTransportException.h>
@@ -47,9 +49,11 @@ namespace apache { namespace thrift { namespace async {
 
   using ::apache::thrift::GlobalOutput;
   using ::apache::thrift::TProcessor;
+  using ::apache::thrift::TException;
   using ::apache::thrift::TApplicationException;
   using ::apache::thrift::protocol::TProtocol;
   using ::apache::thrift::protocol::TBinaryProtocol;
+  using ::apache::thrift::protocol::TProtocolException;
   using ::apache::thrift::server::TServer;
   using ::apache::thrift::transport::TMemoryBuffer;
   using ::apache::thrift::transport::TFramedTransport;

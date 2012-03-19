@@ -6,6 +6,7 @@
 *
 */
 #include <AsyncThriftServer.h>
+#include <AsyncException.h>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -29,12 +30,42 @@ namespace apache { namespace thrift { namespace async {
         try
         {
           processor_->process(input_proto_, output_proto_);//may throw
-          //NOTICE:it does not support oneway functions, because it always replies
+          //NOTICE!!!
+          //AsyncThriftServer does not support oneway functions, it always replies here.
+          //Because we could not know whether a RPC is oneway.
+          //This defect will not be fixed, AsyncThriftServerEx is a substitute.
           start_write_output_buffer();
         }
-        catch (std::exception& e)
+        catch (TApplicationException& e)
         {
-          GlobalOutput.printf("caught an exception in TProcessor::process: %s", e.what());
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (TProtocolException& e)
+        {
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (TTransportException& e)
+        {
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (TException& e)
+        {
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (...)
+        {
+          GlobalOutput.printf("on_handle_frame: error");
+          boost::system::error_code ec(
+            boost::system::posix_error::bad_message, boost::system::get_posix_category());
+          on_close(&ec);
         }
       }
     };
@@ -61,7 +92,8 @@ namespace apache { namespace thrift { namespace async {
       new AsyncThriftServer_SingleIOService(processor, acceptor, thread_pool_size, max_client));
   }
 
-  AsyncThriftServer_SingleIOService::ConnectionSP AsyncThriftServer_SingleIOService::create_connection()
+  AsyncThriftServer_SingleIOService::ConnectionSP
+    AsyncThriftServer_SingleIOService::create_connection()
   {
     return ConnectionSP(new Connection(get_io_service(), processor_));
   }
@@ -106,7 +138,8 @@ namespace apache { namespace thrift { namespace async {
     io_service_pool_.stop();
   }
 
-  AsyncThriftServer_IOServicePerThread::ConnectionSP AsyncThriftServer_IOServicePerThread::create_connection()
+  AsyncThriftServer_IOServicePerThread::ConnectionSP
+    AsyncThriftServer_IOServicePerThread::create_connection()
   {
     return ConnectionSP(new Connection(io_service_pool_.get_io_service(), processor_));
   }

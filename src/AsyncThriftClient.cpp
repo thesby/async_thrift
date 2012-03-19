@@ -6,6 +6,7 @@
 *
 */
 #include <AsyncThriftClient.h>
+#include <AsyncException.h>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -31,8 +32,11 @@ namespace apache { namespace thrift { namespace async {
       return;
 
     io_service_ = 0;
-    boost::system::error_code _ec;
-    socket_->close(_ec);//close it manually
+    if (socket_->is_open())
+    {
+      boost::system::error_code _ec;
+      socket_->close(_ec);
+    }
     socket_.reset();
     strand_.reset();
 
@@ -63,7 +67,7 @@ namespace apache { namespace thrift { namespace async {
   void AsyncThriftClient::on_attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
   {
     if (!async_op_list_.empty())
-      throw TTransportException("can not attach sockets that has pending asynchronous operations");
+      throw make_error_code(kThriftHasPendingOp);
 
     AsyncConnection::on_attach(socket);
   }
@@ -71,7 +75,7 @@ namespace apache { namespace thrift { namespace async {
   void AsyncThriftClient::on_detach()
   {
     if (!async_op_list_.empty())
-      throw TTransportException("can not detach sockets that has pending asynchronous operations");
+      throw make_error_code(kThriftHasPendingOp);
 
     AsyncConnection::on_detach();
   }
@@ -82,8 +86,10 @@ namespace apache { namespace thrift { namespace async {
     if (!pending_async_op_
       || async_op_list_.empty()
       || pending_async_op_.get() != async_op_list_.front().get())
+    {
       //operation has been already canceled
       return;
+    }
 
     if (ec)
     {
@@ -100,8 +106,10 @@ namespace apache { namespace thrift { namespace async {
     if (!pending_async_op_
       || async_op_list_.empty()
       || pending_async_op_.get() != async_op_list_.front().get())
+    {
       //operation has been already canceled
       return;
+    }
 
     if (ec)
     {
@@ -136,9 +144,29 @@ namespace apache { namespace thrift { namespace async {
       fill_result(*pending_async_op_);//may throw
       ec.assign(boost::system::posix_error::success, boost::system::get_posix_category());
     }
-    catch (std::exception& e)
+    catch (TApplicationException& e)
     {
-      GlobalOutput.printf("caught an exception in AsyncThriftClient::fill_result: %s", e.what());
+      GlobalOutput.printf("on_handle_frame: %s", e.what());
+      ec = make_error_code(e);
+    }
+    catch (TProtocolException& e)
+    {
+      GlobalOutput.printf("on_handle_frame: %s", e.what());
+      ec = make_error_code(e);
+    }
+    catch (TTransportException& e)
+    {
+      GlobalOutput.printf("on_handle_frame: %s", e.what());
+      ec = make_error_code(e);
+    }
+    catch (TException& e)
+    {
+      GlobalOutput.printf("on_handle_frame: %s", e.what());
+      ec = make_error_code(e);
+    }
+    catch (...)
+    {
+      GlobalOutput.printf("on_handle_frame: error");
       ec.assign(boost::system::posix_error::bad_message, boost::system::get_posix_category());
     }
 

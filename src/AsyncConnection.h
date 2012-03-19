@@ -12,17 +12,23 @@
 
 namespace apache { namespace thrift { namespace async {
 
+  std::string dump_address(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket);
+
   /*
   * AsyncConnection(using TFramedTransport, TBinaryProtocol)
   *
   * socket layer asynchronous
+  * both server and client re-use this code as base class
   */
   class AsyncConnection : private boost::noncopyable,
     public boost::enable_shared_from_this<AsyncConnection>
   {
   protected:
-    static const size_t kBufferSize = 512;
-    static const uint32_t kMaxFrameSize = 1024 * 1024;
+    static const size_t kBufferSize = 4 * 1024;
+    static const size_t kFrameSize = sizeof(uint32_t);
+    //NOTICE: RPC packet size must not be greater than kMaxFrameSize.
+    //100MB is a large limitation, modify it manually if you may break it.
+    static const uint32_t kMaxFrameSize = 100 * 1024 * 1024;
 
     enum kState
     {
@@ -68,8 +74,8 @@ namespace apache { namespace thrift { namespace async {
     }
 
     //NOTICE:
-    //if needed, 'set_strand' must be invoked before any operations.
-    //usually, we use one 'strand' object during one conceptual 'session'
+    //If needed, 'set_strand' must be invoked before any operations.
+    //Usually, we use one 'strand' object during one conceptual 'session'
     //to synchronize handler's invocation.
     boost::shared_ptr<boost::asio::io_service::strand>& get_strand()
     {
@@ -82,22 +88,19 @@ namespace apache { namespace thrift { namespace async {
     }
 
     bool is_open()const;
-    //NOTICE:
-    //this is the only place to close the inner 'socket_'.
-    //if 'socket_' is left open, when AsyncConnection has been destroyed,
-    //the inner 'socket_' only decrement the refcount.
     void close();
-    //cancel asynchronous operations
+    //Cancel asynchronous operations
     void cancel();
 
     //NOTICE:
-    //if there are some pending asynchronous operations,
-    //the results of attach and detach are undefined.
-    //attach and detach shall release the previous inner 'socket_' and 'strand_'.
+    //If there are pending asynchronous operations, attach and detach may throw.
+    //attach shall close the previous inner 'socket_' and release the previous inner 'strand_'.
     void attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket);
     void detach();
 
     //start asynchronous receiving
+    //restart is true, restart a new recveive
+    //restart is false, continue to recveive
     void start_recv(bool restart);
 
   private:
@@ -115,14 +118,19 @@ namespace apache { namespace thrift { namespace async {
   protected:
     //virtual functions
     //must not throw
-    virtual void on_close(const boost::system::error_code * ec);//must not throw
-    //may throw, if there are some pending asynchronous operations
+    virtual void on_close(const boost::system::error_code * ec);
+    //may throw, if there are pending asynchronous operations
     virtual void on_attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket);
+    //may throw, if there are pending asynchronous operations
     virtual void on_detach();
-    virtual void on_handle_read(const boost::system::error_code& ec, size_t);//must not throw
-    virtual void on_handle_write(const boost::system::error_code& ec, size_t);//must not throw
-    virtual void on_handle_frame();//must not throw
-    virtual void on_async_process(const boost::system::error_code& ec, bool is_oneway);//must not throw
+    //must not throw
+    virtual void on_handle_read(const boost::system::error_code& ec, size_t);
+    //must not throw
+    virtual void on_handle_write(const boost::system::error_code& ec, size_t);
+    //must not throw
+    virtual void on_handle_frame();
+    //must not throw
+    virtual void on_async_process(const boost::system::error_code& ec, bool is_oneway);
   };
 
 } } } // namespace

@@ -6,6 +6,7 @@
 *
 */
 #include <AsyncThriftServerEx.h>
+#include <AsyncException.h>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -32,10 +33,36 @@ namespace apache { namespace thrift { namespace async {
             input_proto_, output_proto_,
             boost::bind(&Connection::async_process, shared_from_this(), _1, _2));//may throw
         }
-        catch (std::exception& e)
+        catch (TApplicationException& e)
         {
-          GlobalOutput.printf("caught an exception in AsyncProcessor::process: %s", e.what());
-          return;
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (TProtocolException& e)
+        {
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (TTransportException& e)
+        {
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (TException& e)
+        {
+          GlobalOutput.printf("on_handle_frame: %s", e.what());
+          boost::system::error_code ec = make_error_code(e);
+          on_close(&ec);
+        }
+        catch (...)
+        {
+          GlobalOutput.printf("on_handle_frame: error");
+          boost::system::error_code ec(
+            boost::system::posix_error::bad_message, boost::system::get_posix_category());
+          on_close(&ec);
         }
       }
 
@@ -73,7 +100,8 @@ namespace apache { namespace thrift { namespace async {
       new AsyncThriftServerEx_SingleIOService(processor, acceptor, thread_pool_size, max_client));
   }
 
-  AsyncThriftServerEx_SingleIOService::ConnectionSP AsyncThriftServerEx_SingleIOService::create_connection()
+  AsyncThriftServerEx_SingleIOService::ConnectionSP
+    AsyncThriftServerEx_SingleIOService::create_connection()
   {
     return ConnectionSP(new Connection(get_io_service(), processor_));
   }
@@ -97,7 +125,8 @@ namespace apache { namespace thrift { namespace async {
     size_t max_client)
   {
     return boost::shared_ptr<AsyncThriftServerEx_IOServicePerThread>(
-      new AsyncThriftServerEx_IOServicePerThread(processor, acceptor, thread_pool_size, max_client));
+      new AsyncThriftServerEx_IOServicePerThread(
+        processor, acceptor, thread_pool_size, max_client));
   }
 
   void AsyncThriftServerEx_IOServicePerThread::serve()
@@ -118,7 +147,8 @@ namespace apache { namespace thrift { namespace async {
     io_service_pool_.stop();
   }
 
-  AsyncThriftServerEx_IOServicePerThread::ConnectionSP AsyncThriftServerEx_IOServicePerThread::create_connection()
+  AsyncThriftServerEx_IOServicePerThread::ConnectionSP
+    AsyncThriftServerEx_IOServicePerThread::create_connection()
   {
     return ConnectionSP(new Connection(io_service_pool_.get_io_service(), processor_));
   }

@@ -6,8 +6,25 @@
 *
 */
 #include <AsyncConnection.h>
+#include <AsyncException.h>
 
 namespace apache { namespace thrift { namespace async {
+
+  std::string dump_address(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
+  {
+    assert(socket);
+    try
+    {
+      std::ostringstream oss;
+      oss << "local:" << socket->local_endpoint() << " ";
+      oss << "remote:" << socket->remote_endpoint();
+      return oss.str();
+    }
+    catch (std::exception& e)
+    {
+      return e.what();
+    }
+  }
 
   AsyncConnection::AsyncConnection()
     :io_service_(0)
@@ -30,6 +47,7 @@ namespace apache { namespace thrift { namespace async {
 
   AsyncConnection::~AsyncConnection()
   {
+    //Do not close socket_, so socket_ will release the reference count
   }
 
   bool AsyncConnection::is_open()const
@@ -42,8 +60,11 @@ namespace apache { namespace thrift { namespace async {
     if (socket_)
     {
       io_service_ = 0;
-      boost::system::error_code _ec;
-      socket_->close(_ec);//close it manually
+      if (socket_->is_open())
+      {
+        boost::system::error_code _ec;
+        socket_->close(_ec);
+      }
       socket_.reset();
       strand_.reset();
     }
@@ -51,7 +72,7 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncConnection::cancel()
   {
-    if (socket_)
+    if (socket_ && socket_->is_open())
     {
       boost::system::error_code ec;
       socket_->cancel(ec);
@@ -72,8 +93,11 @@ namespace apache { namespace thrift { namespace async {
   {
     if (restart)
     {
-      //here is the change to shrink the buffer
-      std::vector<uint8_t>(kBufferSize).swap(recv_buffer_);
+      if (recv_buffer_.size() > kMaxFrameSize)
+      {
+        //This is the only chance to shrink recv_buffer_
+        std::vector<uint8_t>(kBufferSize).swap(recv_buffer_);
+      }
       bytes_recv_ = 0;
       frame_size_ = 0;
       state_ = kReadFrameSize;
@@ -95,11 +119,10 @@ namespace apache { namespace thrift { namespace async {
     }
     else
     {
-      size_t buffer_size = recv_buffer_.size();
-      //extend buffer if needed
-      if (bytes_recv_ == buffer_size)
-        recv_buffer_.resize(buffer_size << 1);
+      if (state_ == kReadFrame)
+        recv_buffer_.resize(frame_size_ + kFrameSize);
 
+      size_t buffer_size = recv_buffer_.size();
       if (strand_)
       {
         socket_->async_read_some(
@@ -134,7 +157,6 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncConnection::get_frame_size()
   {
-    assert(recv_buffer_.size() >= sizeof(uint32_t));
     frame_size_ = *(reinterpret_cast<const uint32_t*>(&recv_buffer_[0]));
     frame_size_ = ntohl(frame_size_);
   }
@@ -176,14 +198,22 @@ namespace apache { namespace thrift { namespace async {
     switch (state_)
     {
     case kReadFrameSize:
-      if (bytes_recv_ >= sizeof(uint32_t))
+      if (bytes_recv_ >= kFrameSize)
       {
         //got the frame length
         get_frame_size();
 
         if (frame_size_ >= kMaxFrameSize || frame_size_ == 0)
         {
-          GlobalOutput.printf("illegal frame size: %u", frame_size_);
+          GlobalOutput.printf("%s illegal frame size: %u",
+            dump_address(socket_).c_str(), frame_size_);
+
+          boost::system::error_code ec;
+          if (frame_size_ >= kMaxFrameSize)
+            ec = make_error_code(kProtoSizeLimit);
+          else
+            ec = make_error_code(kProtoNegativeSize);
+          on_close(&ec);
           return;
         }
 
@@ -199,10 +229,10 @@ namespace apache { namespace thrift { namespace async {
       }
 
     case kReadFrame:
-      if (bytes_recv_ >= frame_size_+sizeof(uint32_t))
+      if (bytes_recv_ >= frame_size_+kFrameSize)
       {
         //got a complete frame, handle it
-        input_buffer_->resetBuffer(&recv_buffer_[0], frame_size_+sizeof(uint32_t));
+        input_buffer_->resetBuffer(&recv_buffer_[0], frame_size_+kFrameSize);
         output_buffer_->resetBuffer();
         on_handle_frame();
       }
@@ -217,6 +247,7 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncConnection::on_close(const boost::system::error_code * ec)
   {
+    close();
   }
 
   void AsyncConnection::on_attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
@@ -257,8 +288,8 @@ namespace apache { namespace thrift { namespace async {
     if (ec)
       return;
 
-    assert(bytes_recv_ >= frame_size_+sizeof(uint32_t));
-    if (bytes_recv_ == frame_size_+sizeof(uint32_t))
+    assert(bytes_recv_ >= frame_size_+kFrameSize);
+    if (bytes_recv_ == frame_size_+kFrameSize)
     {
       //buffer is empty, restart
       start_recv(true);
@@ -266,9 +297,9 @@ namespace apache { namespace thrift { namespace async {
     else
     {
       //consume the previous frame buffer, and handle the buffer remained
-      memcpy(&recv_buffer_[0], &recv_buffer_[frame_size_+sizeof(uint32_t)],
-        bytes_recv_-frame_size_-sizeof(uint32_t));
-      bytes_recv_ -= (frame_size_+sizeof(uint32_t));
+      memcpy(&recv_buffer_[0], &recv_buffer_[frame_size_+kFrameSize],
+        bytes_recv_-frame_size_-kFrameSize);
+      bytes_recv_ -= (frame_size_+kFrameSize);
       frame_size_ = 0;
       state_ = kReadFrameSize;
       handle_buffer();

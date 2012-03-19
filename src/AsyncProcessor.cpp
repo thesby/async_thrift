@@ -6,6 +6,7 @@
 *
 */
 #include <AsyncProcessor.h>
+#include <AsyncException.h>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -22,23 +23,24 @@ namespace apache { namespace thrift { namespace async {
 
     input_protocol->readMessageBegin(fname, mtype, seqid);
 
-    if (mtype != ::apache::thrift::protocol::T_CALL && mtype != ::apache::thrift::protocol::T_ONEWAY)
+    if (mtype != ::apache::thrift::protocol::T_CALL
+      && mtype != ::apache::thrift::protocol::T_ONEWAY)
     {
       input_protocol->skip(::apache::thrift::protocol::T_STRUCT);
       input_protocol->readMessageEnd();
       input_protocol->getTransport()->readEnd();
       TApplicationException x(TApplicationException::INVALID_MESSAGE_TYPE);
-      output_protocol->writeMessageBegin(fname, ::apache::thrift::protocol::T_EXCEPTION, seqid);
+      output_protocol->writeMessageBegin(fname,
+        ::apache::thrift::protocol::T_EXCEPTION, seqid);
       x.write(output_protocol);
       output_protocol->writeMessageEnd();
       output_protocol->getTransport()->flush();
       output_protocol->getTransport()->writeEnd();
 
       //invoke callback
-      boost::system::error_code ec(boost::system::posix_error::bad_message,
-        boost::system::get_posix_category());
-      //here is_oneway('false') is ignored, because ec is specified
-      callback(ec, false);
+      //Here is_oneway(the second parameter 'false') is ignored,
+      //because error code is specified
+      callback(make_error_code(x), false);
       return;
     }
     process_fn(input_protocol, output_protocol, callback, fname, seqid);

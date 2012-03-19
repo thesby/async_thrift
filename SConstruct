@@ -97,6 +97,7 @@ Command(output,
 env.StaticLibrary('async_thrift',
     [
         'src/AsyncConnection.cpp',
+        'src/AsyncException.cpp',
         'src/AsyncProcessor.cpp',
         'src/AsyncThriftClient.cpp',
         'src/AsyncThriftServerBase.cpp',
