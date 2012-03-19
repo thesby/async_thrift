@@ -164,6 +164,11 @@ namespace apache { namespace thrift { namespace async {
       GlobalOutput.printf("on_handle_frame: %s", e.what());
       ec = make_error_code(e);
     }
+    catch (std::exception& e)
+    {
+      GlobalOutput.printf("on_handle_frame: %s", e.what());
+      ec.assign(boost::system::posix_error::bad_message, boost::system::get_posix_category());
+    }
     catch (...)
     {
       GlobalOutput.printf("on_handle_frame: error");

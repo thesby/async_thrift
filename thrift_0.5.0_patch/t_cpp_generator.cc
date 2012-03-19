@@ -245,6 +245,11 @@ class t_cpp_generator : public t_oop_generator {
   std::set<std::string> reflected_fingerprints_;
 
  private:
+  // means temp indent
+  static inline string tindent()
+  {
+    return "  ";
+  }
   string async_if_function_signature(t_function * tfunction, const string& prefix="", bool name_params=true);
   string async_process_function_signature(t_function * tfunction, const string& prefix="");
   string async_complete_function_signature(t_function * tfunction, const string& svcname, const string& prefix="");

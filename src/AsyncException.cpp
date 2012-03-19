@@ -42,7 +42,7 @@ namespace apache { namespace thrift { namespace async {
 
       std::string message(int value) const
       {
-        switch(value)
+        switch (value)
         {
         case kAppUnknown:
           return "TApplicationException: Unknown application exception";
@@ -72,7 +72,7 @@ namespace apache { namespace thrift { namespace async {
 
       std::string message(int value) const
       {
-        switch(value)
+        switch (value)
         {
         case kProtoUnknown:
           return "TProtocolException: Unknown protocol exception";
@@ -102,7 +102,7 @@ namespace apache { namespace thrift { namespace async {
 
       std::string message(int value) const
       {
-        switch(value)
+        switch (value)
         {
         case kTransUnknown:
           return "TTransportException: Unknown transport exception";
