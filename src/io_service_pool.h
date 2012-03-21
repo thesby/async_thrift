@@ -15,9 +15,13 @@
 #ifndef IO_SERVICE_POOL_H
 #define IO_SERVICE_POOL_H
 
-#include "AsyncCommon.h"
+#include <AsyncCommon.h>
 
 namespace apache { namespace thrift { namespace async {
+
+  void set_tss_io_service(boost::asio::io_service * ios);
+  boost::asio::io_service * get_tss_io_service();
+  void run_io_service_tss(boost::asio::io_service * ios);
 
   /// A pool of io_service objects.
   class io_service_pool : private boost::noncopyable

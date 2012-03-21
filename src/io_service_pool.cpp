@@ -12,9 +12,28 @@
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
-#include "io_service_pool.h"
+#include <io_service_pool.h>
 
 namespace apache { namespace thrift { namespace async {
+
+  static boost::thread_specific_ptr<boost::asio::io_service *> s_tss_io_service;
+
+  void set_tss_io_service(boost::asio::io_service * ios)
+  {
+    boost::asio::io_service ** ptr = new boost::asio::io_service *(ios);
+    s_tss_io_service.reset(ptr);
+  }
+
+  boost::asio::io_service * get_tss_io_service()
+  {
+    return *s_tss_io_service.get();
+  }
+
+  void run_io_service_tss(boost::asio::io_service * ios)
+  {
+    set_tss_io_service(ios);
+    ios->run();
+  }
 
   io_service_pool::io_service_pool(size_t pool_size)
     : next_io_service_(0)
@@ -40,7 +59,7 @@ namespace apache { namespace thrift { namespace async {
     for (size_t i = 0; i < io_services_.size(); ++i)
     {
       boost::shared_ptr<boost::thread> thread(new boost::thread(
-        boost::bind(&boost::asio::io_service::run, io_services_[i])));
+        boost::bind(run_io_service_tss, io_services_[i].get())));
       threads.push_back(thread);
     }
 

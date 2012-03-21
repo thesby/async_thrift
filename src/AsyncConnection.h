@@ -8,7 +8,7 @@
 #ifndef ASYNC_CONNECTION_H
 #define ASYNC_CONNECTION_H
 
-#include "AsyncCommon.h"
+#include <AsyncCommon.h>
 
 namespace apache { namespace thrift { namespace async {
 

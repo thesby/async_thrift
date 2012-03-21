@@ -8,7 +8,7 @@
 #ifndef ASYNC_EXCEPTION_H
 #define ASYNC_EXCEPTION_H
 
-#include "AsyncCommon.h"
+#include <AsyncCommon.h>
 
 namespace apache { namespace thrift { namespace async {
 

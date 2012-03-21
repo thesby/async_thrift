@@ -6,6 +6,7 @@
 *
 */
 #include <AsyncThriftServerBase.h>
+#include <io_service_pool.h>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -33,7 +34,7 @@ namespace apache { namespace thrift { namespace async {
     boost::thread_group tg;
     for (size_t i=0; i<get_thread_pool_size(); i++)
     {
-      tg.create_thread(boost::bind(&boost::asio::io_service::run, &get_io_service()));
+      tg.create_thread(boost::bind(run_io_service_tss, &get_io_service()));
     }
     tg.join_all();
   }

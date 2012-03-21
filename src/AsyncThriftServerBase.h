@@ -8,7 +8,7 @@
 #ifndef ASYNC_THRIFT_SERVER_BASE_H
 #define ASYNC_THRIFT_SERVER_BASE_H
 
-#include "AsyncConnection.h"
+#include <AsyncConnection.h>
 
 namespace apache { namespace thrift { namespace async {
 

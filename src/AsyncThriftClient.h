@@ -9,7 +9,7 @@
 #define ASYNC_THRIFT_CLIENT_H
 
 #include <list>
-#include "AsyncConnection.h"
+#include <AsyncConnection.h>
 
 namespace apache { namespace thrift { namespace async {
 

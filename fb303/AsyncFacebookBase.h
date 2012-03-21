@@ -76,6 +76,11 @@ namespace facebook { namespace fb303 {
       return server_;
     }
 
+    void reset_server()
+    {
+      server_.reset();
+    }
+
   public:
     AsyncFacebookBase();
     explicit AsyncFacebookBase(const std::string& name, const std::string& version);

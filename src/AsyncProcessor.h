@@ -8,7 +8,7 @@
 #ifndef ASYNC_PROCOSSER_H
 #define ASYNC_PROCOSSER_H
 
-#include "AsyncCommon.h"
+#include <AsyncCommon.h>
 
 namespace apache { namespace thrift { namespace async {
 

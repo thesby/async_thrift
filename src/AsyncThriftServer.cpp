@@ -125,7 +125,7 @@ namespace apache { namespace thrift { namespace async {
     get_io_service().reset();
     async_accept();
     boost::thread_group tg;
-    tg.create_thread(boost::bind(&boost::asio::io_service::run, &get_io_service()));
+    tg.create_thread(boost::bind(run_io_service_tss, &get_io_service()));
 
     io_service_pool_.run();
 
