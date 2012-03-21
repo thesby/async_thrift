@@ -41,43 +41,39 @@ namespace apache { namespace thrift { namespace async {
     if (pool_size == 0)
       pool_size = 1;
 
-    // Give all the io_services work to do so that their run() functions will not
-    // exit until they are explicitly stopped.
-    for (size_t i = 0; i < pool_size; ++i)
+    for (size_t i=0; i<pool_size; ++i)
     {
       io_service_ptr io_service(new boost::asio::io_service(1));
       work_ptr work(new boost::asio::io_service::work(*io_service));
+
       io_services_.push_back(io_service);
       work_.push_back(work);
     }
   }
 
-  void io_service_pool::run()
+  void io_service_pool::run(bool enable_tss)
   {
-    // Create a pool of threads to run all of the io_services.
-    std::vector<boost::shared_ptr<boost::thread> > threads;
-    for (size_t i = 0; i < io_services_.size(); ++i)
+    boost::thread_group tg;
+    for (size_t i=0; i<io_services_.size(); ++i)
     {
-      boost::shared_ptr<boost::thread> thread(new boost::thread(
-        boost::bind(run_io_service_tss, io_services_[i].get())));
-      threads.push_back(thread);
-    }
+      io_services_[i]->reset();
 
-    // Wait for all threads in the pool to exit.
-    for (size_t i = 0; i < threads.size(); ++i)
-      threads[i]->join();
+      if (enable_tss)
+        tg.create_thread(boost::bind(run_io_service_tss, io_services_[i].get()));
+      else
+        tg.create_thread(boost::bind(&boost::asio::io_service::run, io_services_[i].get()));
+    }
+    tg.join_all();
   }
 
   void io_service_pool::stop()
   {
-    // Explicitly stop all io_services.
-    for (size_t i = 0; i < io_services_.size(); ++i)
+    for (size_t i=0; i<io_services_.size(); ++i)
       io_services_[i]->stop();
   }
 
   boost::asio::io_service& io_service_pool::get_io_service()
   {
-    // Use a round-robin scheme to choose the next io_service to use.
     boost::asio::io_service& io_service = *io_services_[next_io_service_];
     ++next_io_service_;
     if (next_io_service_ == io_services_.size())
