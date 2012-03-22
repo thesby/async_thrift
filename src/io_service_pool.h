@@ -15,7 +15,10 @@
 #ifndef IO_SERVICE_POOL_H
 #define IO_SERVICE_POOL_H
 
-#include <AsyncCommon.h>
+#include <vector>
+#include <boost/asio.hpp>
+#include <boost/noncopyable.hpp>
+#include <boost/shared_ptr.hpp>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -23,13 +26,14 @@ namespace apache { namespace thrift { namespace async {
   boost::asio::io_service * get_tss_io_service();
   void run_io_service_tss(boost::asio::io_service * ios);
 
+  // This piece of code is from asio example, and the naming convention remains
   class io_service_pool : private boost::noncopyable
   {
   public:
-    explicit io_service_pool(size_t pool_size);
+    io_service_pool(size_t pool_size);
     void run(bool enable_tss = true);
     void stop();
-    // use a round-robin scheme to choose the next io_service to use.
+    // Use a round-robin scheme to choose the next io_service to use.
     boost::asio::io_service& get_io_service();
 
   private:
@@ -40,6 +44,9 @@ namespace apache { namespace thrift { namespace async {
     std::vector<work_ptr> work_;
     size_t next_io_service_;
   };
+
+  // make the convention of class name comply
+  typedef io_service_pool IOServicePool;
 
 } } } // namespace
 

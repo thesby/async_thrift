@@ -8,8 +8,8 @@
 #ifndef ASYNC_THRIFT_CLIENT_H
 #define ASYNC_THRIFT_CLIENT_H
 
-#include <list>
 #include <AsyncConnection.h>
+#include <list>
 
 namespace apache { namespace thrift { namespace async {
 

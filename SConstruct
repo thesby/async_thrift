@@ -103,6 +103,7 @@ env.StaticLibrary('async_thrift',
         'src/AsyncThriftServerBase.cpp',
         'src/AsyncThriftServer.cpp',
         'src/AsyncThriftServerEx.cpp',
+        'src/asio_pool.cpp',
         'src/io_service_pool.cpp',
     ]
 )
@@ -131,6 +132,7 @@ Source = [
 
 COMMON_LIBS = [
     File('./libasync_thrift.a'),
+    File('./libasync_fb303.a'),
     File('/usr/lib/libboost_thread.a'),
     File('/usr/lib/libboost_system.a'),
     File('/usr/lib/libboost_program_options.a'),
@@ -151,5 +153,9 @@ env.Program('client',
 
 env.Program('perf_test',
    Source + ['example/EchoServerPerfTest.cpp'],
+)
+
+env.Program('asio_pool_test',
+   Source + ['test/asio_pool_test.cpp'],
 )
 

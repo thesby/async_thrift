@@ -143,7 +143,8 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncThriftServerEx_IOServicePerThread::stop()
   {
-    get_io_service().stop();
+    cancel_async_accept();
+    //get_io_service().stop();
     io_service_pool_.stop();
   }
 

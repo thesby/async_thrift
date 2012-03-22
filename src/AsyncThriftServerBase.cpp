@@ -41,7 +41,8 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncThriftServerBase::stop()
   {
-    get_io_service().stop();
+    cancel_async_accept();
+    //get_io_service().stop();
   }
 
   void AsyncThriftServerBase::async_accept()
@@ -49,6 +50,11 @@ namespace apache { namespace thrift { namespace async {
     ConnectionSP new_conn = create_connection();
     acceptor_->async_accept(new_conn->get_socket(),
       boost::bind(&AsyncThriftServerBase::handle_accept, this, new_conn, _1));
+  }
+
+  void AsyncThriftServerBase::cancel_async_accept()
+  {
+    acceptor_->cancel();
   }
 
   void AsyncThriftServerBase::handle_accept(ConnectionSP conn, const boost::system::error_code& ec)

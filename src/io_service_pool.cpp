@@ -13,6 +13,8 @@
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 //
 #include <io_service_pool.h>
+#include <boost/thread/tss.hpp>
+#include <boost/thread/thread.hpp>
 
 namespace apache { namespace thrift { namespace async {
 

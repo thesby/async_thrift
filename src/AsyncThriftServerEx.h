@@ -57,7 +57,7 @@ namespace apache { namespace thrift { namespace async {
   {
   protected:
     boost::shared_ptr<AsyncProcessor> processor_;
-    io_service_pool io_service_pool_;
+    IOServicePool io_service_pool_;
 
   public:
     AsyncThriftServerEx_IOServicePerThread(

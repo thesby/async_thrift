@@ -55,6 +55,7 @@ namespace apache { namespace thrift { namespace async {
     typedef boost::shared_ptr<AsyncConnection> ConnectionSP;
     virtual ConnectionSP create_connection() = 0;
     void async_accept();
+    void cancel_async_accept();
   private:
     void handle_accept(ConnectionSP conn, const boost::system::error_code& ec);
   };

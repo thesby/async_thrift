@@ -86,7 +86,7 @@ int main(int argc, char **argv)
     namespace po = boost::program_options;
     po::options_description desc("Options");
     desc.add_options()
-      ("help", "produce help message")
+      ("help,h", "produce help message")
       ("port,p", po::value<int>()->default_value(12500), "listening port")
       ("server-model,s", po::value<std::string>()->default_value("asio"), "server model: async, asio, threaded, threadpool")
       ("threadpool-size,t", po::value<int>()->default_value(32), "thread pool size(only for async/asio/threadpool model)");
