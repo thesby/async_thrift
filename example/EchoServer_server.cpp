@@ -155,8 +155,7 @@ int main(int argc, char **argv)
       boost::asio::io_service io_service;
       boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor(new boost::asio::ip::tcp::acceptor(io_service));
 
-      boost::asio::ip::tcp::endpoint endpoint(
-        boost::asio::ip::address::from_string("127.0.0.1"), port);
+      boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v6(), port);
       acceptor->open(endpoint.protocol());
       boost::asio::socket_base::reuse_address option(true);
       acceptor->set_option(option);
@@ -174,8 +173,7 @@ int main(int argc, char **argv)
       boost::asio::io_service io_service;
       boost::shared_ptr<boost::asio::ip::tcp::acceptor> acceptor(new boost::asio::ip::tcp::acceptor(io_service));
 
-      boost::asio::ip::tcp::endpoint endpoint(
-        boost::asio::ip::address::from_string("127.0.0.1"), port);
+      boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v6(), port);
       acceptor->open(endpoint.protocol());
       boost::asio::socket_base::reuse_address option(true);
       acceptor->set_option(option);

@@ -42,6 +42,7 @@ namespace apache { namespace thrift { namespace async {
 
     // 添加/删除一个服务地址
     void add(const EndPoint& endpoint);
+    void add(const std::vector<EndPoint>& endpoints);
     void del(const EndPoint& endpoint);
 
     // 获取/归还一个服务地址的连接

@@ -101,7 +101,7 @@ namespace
       s_stat.dump();
 
       std::string status = asio_pool->get_status();
-      printf("%s\n", status.c_str());
+      printf("%s\n\n", status.c_str());
 
       boost::this_thread::sleep(boost::posix_time::seconds(1));
     }
@@ -118,6 +118,7 @@ namespace
       if (!asio_pool->get(conn))
       {
         s_stat.inc_failure_get_conn();
+        boost::this_thread::sleep(boost::posix_time::seconds(1));
       }
       else
       {
@@ -132,6 +133,7 @@ namespace
 
           client.detach();
           asio_pool->put(conn);
+          boost::this_thread::sleep(boost::posix_time::microseconds(rand() % 100));
         }
         catch (std::exception& e)
         {
@@ -139,11 +141,10 @@ namespace
           conn.socket.reset();
           s_stat.inc_failure_rpc();
 
+          boost::this_thread::sleep(boost::posix_time::seconds(1));
           printf("getStatus error: %s\n", e.what());
         }
       }
-
-      boost::this_thread::sleep(boost::posix_time::microseconds(rand() % 100));
     }
   }
 }
@@ -159,7 +160,7 @@ int main(int argc, char **argv)
     po::options_description desc("Options");
     desc.add_options()
       ("help,h", "produce help message")
-      ("backends,b", po::value<std::string>()->default_value("sdl-redis17:9094,sdl-redis18:9094"), "test backends")
+      ("backends,b", po::value<std::string>()->default_value("localhost:12500,localhost:12501,localhost:12502"), "test backends")
       ("thread_number,t", po::value<int>()->default_value(1), "test thread number");
 
     po::variables_map vm;
@@ -217,11 +218,7 @@ int main(int argc, char **argv)
   IOServicePool ios_pool(16);
   s_ios_pool = &ios_pool;
   AsioPool asio_pool(ios_pool);
-
-  for (size_t i=0; i<s_endpoints.size(); i++)
-  {
-    asio_pool.add(s_endpoints[i]);
-  }
+  asio_pool.add(s_endpoints);
 
   /************************************************************************/
   signal(SIGINT, signal_handler);

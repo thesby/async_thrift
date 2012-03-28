@@ -79,6 +79,7 @@ public:
     fprintf(fp, "Failure: %lu\n", failure_bak);
     fprintf(fp, "Actual QPS: %f\n", qps);
     fprintf(fp, "Actual successful QPS: %f\n", successful_qps);
+    fflush(fp);
   }
 
   void dump_rtt(FILE * fp = stdout)
@@ -115,6 +116,7 @@ public:
         "times: %-5lu, percentage: %%%4.2f\n",
         ms, accumu_times, accumu_times*100.0f/total, times, times*100.0f/total);
     }
+    fflush(fp);
   }
 
   void inc_success()
@@ -261,8 +263,6 @@ int main(int argc, char **argv)
       ("help", "produce help message")
       ("host,h", po::value<std::string>()->default_value("localhost"), "host")
       ("port,p", po::value<int>()->default_value(12500), "port")
-      //("clients,c", po::value<int>()->default_value(768), "clients' number")
-      //("times", po::value<int>()->default_value(64), "client's rpc times")
       ("threadpool-size,t", po::value<int>()->default_value(16), "thread pool size");
 
     po::variables_map vm;
@@ -277,8 +277,6 @@ int main(int argc, char **argv)
 
     std::string host = vm["host"].as<std::string>();
     int port = vm["port"].as<int>();
-    //int clients = vm["clients"].as<int>();
-    //int times = vm["times"].as<int>();
     int threadpool_size = vm["threadpool-size"].as<int>();
 
     install_signal_handler();

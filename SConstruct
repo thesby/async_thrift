@@ -7,8 +7,8 @@ env = env.Clone()
 
 def CheckBoost(context):
     context.Message('Checking for C++ library boost...')
-    context.SetLIBS('boost_thread')
-    result = context.TryLink(
+#    context.SetLIBS('boost_thread')
+    result = context.TryCompile(
     """
     #include <boost/thread.hpp>
     int main(int argc, char **argv){return 0;}
@@ -18,8 +18,8 @@ def CheckBoost(context):
 
 def CheckThrift(context):
     context.Message('Checking for C++ library Thrift...')
-    context.SetLIBS('thrift')
-    result = context.TryLink(
+#    context.SetLIBS('thrift')
+    result = context.TryCompile(
     """
     #include <thrift/Thrift.h>
     int main(int argc, char **argv){return 0;}

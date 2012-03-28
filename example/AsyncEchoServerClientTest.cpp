@@ -47,7 +47,7 @@ int main(int argc, char **argv)
     namespace po = boost::program_options;
     po::options_description desc("Options");
     desc.add_options()
-      ("help", "produce help message")
+      ("help,h", "produce help message")
       ("port,p", po::value<int>()->default_value(12500), "listening port")
       ("clients,c", po::value<int>()->default_value(768), "clients' number")
       ("times", po::value<int>()->default_value(64), "client's rpc times")

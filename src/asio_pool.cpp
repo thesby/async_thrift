@@ -52,7 +52,7 @@ namespace apache { namespace thrift { namespace async {
       if (ec)
       {
         socket_sp.reset();
-        GlobalOutput.printf("connection %s failed: %s\n",
+        GlobalOutput.printf("connect %s failed: %s\n",
           endpoint_to_string(endpoint).c_str(), ec.message().c_str());
       }
 
@@ -124,7 +124,7 @@ namespace apache { namespace thrift { namespace async {
     const size_t max_conn_per_endpoint_;
     const size_t probe_cycle_;
 
-    mutable boost::mutex mutex_;// 保护map_,stats_
+    mutable boost::recursive_mutex mutex_;// 保护map_,stats_
     EndPointPoolMap map_;
 
     // 统计信息
@@ -217,7 +217,7 @@ namespace apache { namespace thrift { namespace async {
 
       {
         // 1.遍历map_,更新状态
-        boost::mutex::scoped_lock guard(mutex_);
+        boost::recursive_mutex::scoped_lock guard(mutex_);
 
         EndPointPoolMap::iterator first = map_.begin();
         EndPointPoolMap::iterator last = map_.end();
@@ -303,7 +303,7 @@ namespace apache { namespace thrift { namespace async {
 
           kStatus new_status;
           {
-            boost::mutex::scoped_lock guard(mutex_);
+            boost::recursive_mutex::scoped_lock guard(mutex_);
             new_status = map_[endpoint].status;
           }
 
@@ -337,7 +337,7 @@ namespace apache { namespace thrift { namespace async {
                 status = kDisConnected;
 
                 {
-                  boost::mutex::scoped_lock guard(mutex_);
+                  boost::recursive_mutex::scoped_lock guard(mutex_);
                   EndPointPool& new_endpoint_pool = map_[endpoint];
                   if (new_endpoint_pool.status == kDeleting)
                     break;
@@ -361,7 +361,7 @@ namespace apache { namespace thrift { namespace async {
                   endpoint_to_string(endpoint).c_str());
 
                 {
-                  boost::mutex::scoped_lock guard(mutex_);
+                  boost::recursive_mutex::scoped_lock guard(mutex_);
                   EndPointPool& new_endpoint_pool = map_[endpoint];
                   if (new_endpoint_pool.status == kDeleting)
                     break;
@@ -421,7 +421,7 @@ namespace apache { namespace thrift { namespace async {
 
     std::string get_status()const
     {
-      boost::mutex::scoped_lock guard(mutex_);
+      boost::recursive_mutex::scoped_lock guard(mutex_);
 
       std::ostringstream oss;
       oss << stats_.to_string() << std::endl;
@@ -443,7 +443,7 @@ namespace apache { namespace thrift { namespace async {
 
     void add(const EndPoint& endpoint)
     {
-      boost::mutex::scoped_lock guard(mutex_);
+      boost::recursive_mutex::scoped_lock guard(mutex_);
       EndPointPool& endpoint_pool = map_[endpoint];
 
       if (endpoint_pool.status == kDeleting
@@ -452,11 +452,34 @@ namespace apache { namespace thrift { namespace async {
         endpoint_pool.status = kAdding;
         endpoint_pool.close_all();
       }
+
+      // 立即发起一次快速状态监测
+      quick_probe();
+    }
+
+    void add(const std::vector<EndPoint>& endpoints)
+    {
+      boost::recursive_mutex::scoped_lock guard(mutex_);
+
+      for (size_t i=0; i<endpoints.size(); i++)
+      {
+        EndPointPool& endpoint_pool = map_[endpoints[i]];
+
+        if (endpoint_pool.status == kDeleting
+          || endpoint_pool.status == kDeleted)
+        {
+          endpoint_pool.status = kAdding;
+          endpoint_pool.close_all();
+        }
+      }
+
+      // 立即发起一次快速状态监测
+      quick_probe();
     }
 
     void del(const EndPoint& endpoint)
     {
-      boost::mutex::scoped_lock guard(mutex_);
+      boost::recursive_mutex::scoped_lock guard(mutex_);
 
       EndPointPoolMap::iterator it = map_.find(endpoint);
       if (it == map_.end())
@@ -476,9 +499,18 @@ namespace apache { namespace thrift { namespace async {
     bool get(EndPointConn& conn)
     {
       {
-        boost::mutex::scoped_lock guard(mutex_);
+        boost::recursive_mutex::scoped_lock guard(mutex_);
 
         EndPointPool& endpoint_pool = map_[conn.endpoint];
+        if (endpoint_pool.status != kConnected)
+        {
+          // 保守,状态不为kConnected根本不会尝试去获取连接(即使这时服务可能已经恢复)
+          stats_.got_conn_failure_++;
+          //GlobalOutput.printf("%s: status is not [kConnected]\n",
+          //  endpoint_to_string(conn.endpoint).c_str());
+          return false;
+        }
+
         if (!endpoint_pool.pool.empty())
         {
           SocketSP& socket_sp = endpoint_pool.pool.back();
@@ -488,8 +520,6 @@ namespace apache { namespace thrift { namespace async {
           {
             // 连接异常断开,关闭同一个池的所有连接
             endpoint_pool.close_all();
-            // 立即重新检测状态
-            set_quick_probe();
             //GlobalOutput.printf("%s: no available socket in the pool\n",
             //  endpoint_to_string(conn.endpoint).c_str());
           }
@@ -506,11 +536,16 @@ namespace apache { namespace thrift { namespace async {
         }
       }
 
-      // 立即连接
+      // 这里,连接池为空,或者连接池中的连接断开,立即尝试一次连接
       conn.socket = socket_connect(ios_pool_.get_io_service(), conn.endpoint);
       if (!conn.socket)
       {
-        boost::mutex::scoped_lock guard(mutex_);
+        boost::recursive_mutex::scoped_lock guard(mutex_);
+        // 连接失败,立即设置为kDisConnected
+        EndPointPool& endpoint_pool = map_[conn.endpoint];
+        endpoint_pool.status = kDisConnected;
+        endpoint_pool.close_all();
+
         stats_.got_conn_failure_++;
         //GlobalOutput.printf("%s: got a new connection failed\n",
         //  endpoint_to_string(conn.endpoint).c_str());
@@ -518,7 +553,7 @@ namespace apache { namespace thrift { namespace async {
       }
       else
       {
-        boost::mutex::scoped_lock guard(mutex_);
+        boost::recursive_mutex::scoped_lock guard(mutex_);
         stats_.got_from_created_conn_++;
         //GlobalOutput.printf("%s: got a new connection ok\n",
         //  endpoint_to_string(conn.endpoint).c_str());
@@ -531,7 +566,7 @@ namespace apache { namespace thrift { namespace async {
       if (!conn.socket->is_open())
         return;
 
-      boost::mutex::scoped_lock guard(mutex_);
+      boost::recursive_mutex::scoped_lock guard(mutex_);
       EndPointPool& endpoint_pool = map_[conn.endpoint];
 
       if (endpoint_pool.status != kConnected)
@@ -563,7 +598,7 @@ namespace apache { namespace thrift { namespace async {
 
     void clear()
     {
-      boost::mutex::scoped_lock guard(mutex_);
+      boost::recursive_mutex::scoped_lock guard(mutex_);
       map_.clear();
       stats_.clear();
     }
@@ -590,6 +625,11 @@ namespace apache { namespace thrift { namespace async {
   void AsioPool::add(const EndPoint& endpoint)
   {
     impl_->add(endpoint);
+  }
+
+  void AsioPool::add(const std::vector<EndPoint>& endpoints)
+  {
+    impl_->add(endpoints);
   }
 
   void AsioPool::del(const EndPoint& endpoint)
