@@ -1,18 +1,17 @@
 /** @file
-* @brief asio tcp socket pool test
+* @brief service manager test
 * @author yafei.zhang@langtaojin.com
 * @date
 * @version
 *
 */
-#include <asio_pool.h>
+#include <service_manager.h>
 #include <gen-cpp/AsyncFacebookService.h>
 
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
-#include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 
 using namespace ::apache::thrift::async;
@@ -87,36 +86,32 @@ namespace
     int64_t failure_rpc;
   } s_stat;
 
-  std::vector<EndPoint> s_endpoints;
-
   void run_ios_pool_thread(IOServicePool * ios_pool)
   {
     ios_pool->run();
   }
 
-  void dump_thread(AsioPool * asio_pool)
+  void dump_thread(ServiceManager * sm)
   {
     while(!s_stop_flag)
     {
       s_stat.dump();
 
-      std::string status = asio_pool->get_status();
+      std::string status = sm->get_status();
       printf("%s\n\n", status.c_str());
 
-      boost::this_thread::sleep(boost::posix_time::seconds(1));
+      boost::this_thread::sleep(boost::posix_time::seconds(2));
     }
   }
 
-  void press_thread(AsioPool * asio_pool)
+  void press_thread(ServiceManager * sm)
   {
     while (!s_stop_flag)
     {
       facebook::fb303::AsyncFacebookServiceClient client;
-      EndPoint endpoint;
       SocketSP socket_sp;
-      endpoint = s_endpoints[rand() % s_endpoints.size()];
 
-      if (!asio_pool->get(endpoint, &socket_sp))
+      if (!sm->get(1, &socket_sp))
       {
         s_stat.inc_failure_get_conn();
         boost::this_thread::sleep(boost::posix_time::seconds(1));
@@ -133,7 +128,7 @@ namespace
             s_stat.inc_failure_rpc();
 
           client.detach();
-          asio_pool->put(&socket_sp);
+          sm->put(1, &socket_sp);
           boost::this_thread::sleep(boost::posix_time::microseconds(rand() % 100));
         }
         catch (std::exception& e)
@@ -184,56 +179,26 @@ int main(int argc, char **argv)
   }
 
   /************************************************************************/
-  std::vector<std::string> backend_list;
-  boost::asio::io_service ios;
-  boost::asio::ip::tcp::resolver resolver(ios);
-
-  boost::split(backend_list, backends, boost::is_any_of(","));
-  for (size_t i=0; i<backend_list.size(); i++)
-  {
-    std::vector<std::string> host_port;
-    boost::split(host_port, backend_list[i], boost::is_any_of(":"));
-    if (host_port.size() != 2)
-    {
-      printf("backend error: %s\n", backend_list[i].c_str());
-      continue;
-    }
-
-    boost::system::error_code ec;
-    boost::asio::ip::tcp::resolver::query query(host_port[0], host_port[1]);
-    boost::asio::ip::tcp::resolver::iterator it = resolver.resolve(query, ec);
-    if (ec)
-    {
-      printf("resolve %s error: %s\n", backend_list[i].c_str(), ec.message().c_str());
-      continue;
-    }
-
-    s_endpoints.push_back(*it);
-    printf("resolved %s\n", backend_list[i].c_str());
-  }
-
-  if (s_endpoints.size() == 0)
-    return 0;
-
-  /************************************************************************/
   IOServicePool ios_pool(16);
   s_ios_pool = &ios_pool;
   AsioPool asio_pool(ios_pool);
-  asio_pool.add(s_endpoints);
+  ServiceManager sm(asio_pool);
+
+  sm.set_backend(1, backends);
 
   /************************************************************************/
   signal(SIGINT, signal_handler);
   s_stop_flag = false;
 
 
-  printf("testing asio pool\n");
+  printf("testing service manager\n");
   boost::thread_group group;
   group.create_thread(boost::bind(run_ios_pool_thread, &ios_pool));
-  group.create_thread(boost::bind(dump_thread, &asio_pool));
+  group.create_thread(boost::bind(dump_thread, &sm));
   for (int i=0; i<thread_number; i++)
-    group.create_thread(boost::bind(press_thread, &asio_pool));
+    group.create_thread(boost::bind(press_thread, &sm));
   group.join_all();
-  printf("finished testing asio pool\n");
+  printf("finished testing service manager\n");
 
   return 0;
 }

@@ -121,8 +121,34 @@ namespace apache { namespace thrift { namespace async {
       SEPSet _set;
       parse_backends(backends, &_set);
 
+      SEPSet::const_iterator first, last;
+
       boost::recursive_mutex::scoped_lock guard(mutex_);
-      map_[id].sep_set.swap(_set);
+      SEPSet& old_set = map_[id].sep_set;
+
+      // 添加old_set中没有, _set中有的
+      first = _set.begin();
+      last = _set.end();
+      for (; first!=last; ++first)
+      {
+        const ServiceEndPoint& sep = (*first);
+        SEPSet::iterator it = old_set.find(sep);
+        if (it == old_set.end())
+          asio_pool_.add(sep.endpoint);
+      }
+
+      // 删除old_set中有, _set中没有的
+      first = old_set.begin();
+      last = old_set.end();
+      for (; first!=last; ++first)
+      {
+        const ServiceEndPoint& sep = (*first);
+        SEPSet::iterator it = _set.find(sep);
+        if (it == _set.end())
+          asio_pool_.del(sep.endpoint);
+      }
+
+      old_set.swap(_set);
     }
 
     void add_backend(int id, const std::string& backends)
@@ -141,7 +167,10 @@ namespace apache { namespace thrift { namespace async {
         const ServiceEndPoint& sep = (*first);
         SEPSet::iterator it = old_set.find(sep);
         if (it == old_set.end())
+        {
           old_set.insert(it, sep);
+          asio_pool_.add(sep.endpoint);
+        }
       }
     }
 
@@ -161,7 +190,10 @@ namespace apache { namespace thrift { namespace async {
         const ServiceEndPoint& sep = (*first);
         SEPSet::iterator it = old_set.find(sep);
         if (it != old_set.end())
+        {
           old_set.erase(it);
+          asio_pool_.del(sep.endpoint);
+        }
       }
     }
 

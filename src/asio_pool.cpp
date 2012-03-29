@@ -361,7 +361,8 @@ namespace apache { namespace thrift { namespace async {
           case kConnected:
           case kDisConnected:
             {
-              SocketSP socket_sp = socket_connect(ios_pool_.get_io_service(), endpoint, connect_timeout_);
+              SocketSP socket_sp = socket_connect(ios_pool_.get_io_service(), endpoint,
+                connect_timeout_);
               if (!socket_sp)
               {
                 // 连接失败
@@ -434,7 +435,8 @@ namespace apache { namespace thrift { namespace async {
                   SocketSPVector pool;
                   for (size_t i=0; i<need_conn; i++)
                   {
-                    socket_sp = socket_connect(ios_pool_.get_io_service(), endpoint, connect_timeout_);
+                    socket_sp = socket_connect(ios_pool_.get_io_service(), endpoint,
+                      connect_timeout_);
                     if (!socket_sp)
                       break;
                     pool.push_back(socket_sp);
@@ -448,10 +450,12 @@ namespace apache { namespace thrift { namespace async {
                       // 该池的状态被改变了
                       break;
 
-                    new_endpoint_pool.pool.insert(new_endpoint_pool.pool.end(), pool.begin(), pool.end());
+                    new_endpoint_pool.pool.insert(new_endpoint_pool.pool.end(),
+                      pool.begin(), pool.end());
                     pool.clear();
 
-                    if (max_conn_per_endpoint_ && new_endpoint_pool.pool.size() > max_conn_per_endpoint_)
+                    if (max_conn_per_endpoint_
+                      && new_endpoint_pool.pool.size() > max_conn_per_endpoint_)
                       new_endpoint_pool.pool.resize(max_conn_per_endpoint_);
                   }
                 }
