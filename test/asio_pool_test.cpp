@@ -112,17 +112,18 @@ namespace
     while (!s_stop_flag)
     {
       facebook::fb303::AsyncFacebookServiceClient client;
-      EndPointConn conn;
-      conn.endpoint = s_endpoints[rand() % s_endpoints.size()];
+      EndPoint endpoint;
+      SocketSP socket_sp;
+      endpoint = s_endpoints[rand() % s_endpoints.size()];
 
-      if (!asio_pool->get(conn))
+      if (!asio_pool->get(endpoint, &socket_sp))
       {
         s_stat.inc_failure_get_conn();
         boost::this_thread::sleep(boost::posix_time::seconds(1));
       }
       else
       {
-        client.attach(conn.socket);
+        client.attach(socket_sp);
         try
         {
           facebook::fb303::fb_status status = client.getStatus();
@@ -132,13 +133,13 @@ namespace
             s_stat.inc_failure_rpc();
 
           client.detach();
-          asio_pool->put(conn);
+          asio_pool->put(&socket_sp);
           boost::this_thread::sleep(boost::posix_time::microseconds(rand() % 100));
         }
         catch (std::exception& e)
         {
-          conn.socket->close();
-          conn.socket.reset();
+          socket_sp->close();
+          socket_sp.reset();
           s_stat.inc_failure_rpc();
 
           boost::this_thread::sleep(boost::posix_time::seconds(1));

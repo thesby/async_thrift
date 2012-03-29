@@ -104,6 +104,7 @@ env.StaticLibrary('async_thrift',
         'src/AsyncThriftServer.cpp',
         'src/AsyncThriftServerEx.cpp',
         'src/asio_pool.cpp',
+        'src/service_manager.cpp',
         'src/io_service_pool.cpp',
     ]
 )

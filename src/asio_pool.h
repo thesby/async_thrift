@@ -17,12 +17,6 @@ namespace apache { namespace thrift { namespace async {
   typedef boost::asio::ip::tcp::socket Socket;
   typedef boost::shared_ptr<Socket> SocketSP;
 
-  struct EndPointConn
-  {
-    EndPoint endpoint;// AsioPool用来检索连接的主键
-    SocketSP socket;
-  };
-
   class AsioPool
   {
   private:
@@ -31,9 +25,13 @@ namespace apache { namespace thrift { namespace async {
   public:
     // ios_pool中的io_service用来创建socket,ios_pool必须处于running状态
     // max_conn_per_endpoint是每个EndPoint的最大连接数,0为不限制
+    // min_conn_per_endpoint是每个EndPoint的最小连接数
+    // connect_timeout是连接的超时时间
     // probe_cycle是内部检测/保活的执行周期
     explicit AsioPool(IOServicePool& ios_pool,
       size_t max_conn_per_endpoint = 128,
+      size_t min_conn_per_endpoint = 5,
+      size_t connect_timeout = 50,
       size_t probe_cycle = 10);
     ~AsioPool();
 
@@ -46,8 +44,8 @@ namespace apache { namespace thrift { namespace async {
     void del(const EndPoint& endpoint);
 
     // 获取/归还一个服务地址的连接
-    bool get(EndPointConn& conn);
-    void put(EndPointConn& conn);
+    bool get(const EndPoint& endpoint, SocketSP * socket_sp);
+    void put(SocketSP * socket_sp);
 
     // 清空连接池所有连接
     void clear();
