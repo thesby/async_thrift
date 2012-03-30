@@ -47,7 +47,8 @@ namespace apache { namespace thrift { namespace async {
 
   AsyncConnection::~AsyncConnection()
   {
-    //Do not close socket_, so socket_ will release the reference count
+    // detach before destructor, if the socket_ may be reused
+    AsyncConnection::on_close(0);
   }
 
   bool AsyncConnection::is_open()const
@@ -57,26 +58,7 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncConnection::close()
   {
-    if (socket_)
-    {
-      io_service_ = 0;
-      if (socket_->is_open())
-      {
-        boost::system::error_code _ec;
-        socket_->close(_ec);
-      }
-      socket_.reset();
-      strand_.reset();
-    }
-  }
-
-  void AsyncConnection::cancel()
-  {
-    if (socket_ && socket_->is_open())
-    {
-      boost::system::error_code ec;
-      socket_->cancel(ec);
-    }
+    on_close(0);
   }
 
   void AsyncConnection::attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
@@ -247,7 +229,17 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncConnection::on_close(const boost::system::error_code * ec)
   {
-    close();
+    if (socket_)
+    {
+      io_service_ = 0;
+      if (socket_->is_open())
+      {
+        boost::system::error_code _ec;
+        socket_->close(_ec);
+      }
+      socket_.reset();
+      strand_.reset();
+    }
   }
 
   void AsyncConnection::on_attach(const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)

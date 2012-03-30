@@ -89,8 +89,6 @@ namespace apache { namespace thrift { namespace async {
 
     bool is_open()const;
     void close();
-    //Cancel asynchronous operations
-    void cancel();
 
     //NOTICE:
     //If there are pending asynchronous operations, attach and detach may throw.

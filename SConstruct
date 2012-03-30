@@ -144,15 +144,15 @@ COMMON_LIBS = [
 
 env.Append(LIBS = COMMON_LIBS)
 
-env.Program('server',
+env.Program('echo_server',
    Source + ['example/EchoServer_server.cpp'],
 )
 
-env.Program('client',
+env.Program('async_echo_client',
    Source + ['example/AsyncEchoServerClientTest.cpp'],
 )
 
-env.Program('perf_test',
+env.Program('echo_perf_test',
    Source + ['example/EchoServerPerfTest.cpp'],
 )
 

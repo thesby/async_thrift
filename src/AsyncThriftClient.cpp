@@ -23,19 +23,23 @@ namespace apache { namespace thrift { namespace async {
 
   AsyncThriftClient::~AsyncThriftClient()
   {
+    // detach before destructor, if the socket_ may be reused
     AsyncThriftClient::on_close(0);
   }
 
   void AsyncThriftClient::on_close(const boost::system::error_code * ec)
   {
     if (!socket_)
+    {
+      assert(async_op_list_.empty());
       return;
+    }
 
     io_service_ = 0;
     if (socket_->is_open())
     {
-      boost::system::error_code _ec;
-      socket_->close(_ec);
+      boost::system::error_code ec;
+      socket_->close(ec);
     }
     socket_.reset();
     strand_.reset();

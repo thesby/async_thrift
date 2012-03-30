@@ -101,7 +101,7 @@ namespace
       s_stat.dump();
 
       std::string status = asio_pool->get_status();
-      printf("%s\n\n", status.c_str());
+      printf("\n%s\n\n", status.c_str());
 
       boost::this_thread::sleep(boost::posix_time::seconds(1));
     }

@@ -25,6 +25,9 @@ namespace apache { namespace thrift { namespace async {
       EndPoint endpoint;// 供asio直接使用的地址
 
       bool local_host;// 是否是本机的服务
+
+      mutable size_t success, failure;// 成功/失败计数器
+      ServiceEndPoint() :success(0), failure(0) {}
     };
 
     struct ServiceEndPointLess
@@ -99,7 +102,7 @@ namespace apache { namespace thrift { namespace async {
         sep.port = host_port[1];
         sep.host_port = hosts_ports[i];
         sep.endpoint = iter->endpoint();
-        sep.local_host = (sep.host == local_host_name_);
+        sep.local_host = (sep.host == local_host_name_) || (sep.host == "localhost");
 
         _set->insert(sep);
       }
@@ -199,6 +202,7 @@ namespace apache { namespace thrift { namespace async {
 
     bool get(int id, SocketSP * socket_sp)
     {
+      size_t local_host_index = 0;
       boost::recursive_mutex::scoped_lock guard(mutex_);
       Service& service = map_[id];
       const SEPSet& sep_set = service.sep_set;
@@ -219,27 +223,49 @@ namespace apache { namespace thrift { namespace async {
         }
         sep_select_vec_count = 0;
 
-        size_t i=0;
         size_t size = sep_select_vec.size();
-        for (; i<size; i++)
+        for (; local_host_index<size; local_host_index++)
         {
-          if (!sep_select_vec[i]->local_host)
+          if (!sep_select_vec[local_host_index]->local_host)
             break;
         }
 
         // 随机打乱,前部分是local_host的服务,后部分是非local_host的服务
-        std::random_shuffle(sep_select_vec.begin(), sep_select_vec.begin()+i);
-        std::random_shuffle(sep_select_vec.begin()+i, sep_select_vec.end());
+        std::random_shuffle(sep_select_vec.begin(), sep_select_vec.begin()+local_host_index);
+        std::random_shuffle(sep_select_vec.begin()+local_host_index, sep_select_vec.end());
       }
 
-      // 按照随机方案选择
-      sep_select_vec_count++;
-
-      size_t size = sep_select_vec.size();
-      for (size_t i=0; i<size; i++)
+      const ServiceEndPoint * sep_ptr;
+      // 按照随机方案选择(本机)
+      for (size_t i=0; i<local_host_index; i++)
       {
-        if (asio_pool_.get(sep_select_vec[i]->endpoint, socket_sp))
+        sep_ptr = sep_select_vec[sep_select_vec_count++ % local_host_index];
+        if (asio_pool_.get(sep_ptr->endpoint, socket_sp))
+        {
+          sep_ptr->success++;
           return true;
+        }
+        else
+        {
+          sep_ptr->failure++;
+        }
+      }
+
+      // 按照随机方案选择(非本机)
+      size_t size = sep_select_vec.size();
+      size_t non_local_size = size - local_host_index;
+      for (size_t i=local_host_index; i<size; i++)
+      {
+        sep_ptr = sep_select_vec[local_host_index + (sep_select_vec_count++ % non_local_size)];
+        if (asio_pool_.get(sep_ptr->endpoint, socket_sp))
+        {
+          sep_ptr->success++;
+          return true;
+        }
+        else
+        {
+          sep_ptr->failure++;
+        }
       }
 
       return false;
@@ -256,7 +282,7 @@ namespace apache { namespace thrift { namespace async {
 
       boost::recursive_mutex::scoped_lock guard(mutex_);
 
-      oss << asio_pool_.get_status() << std::endl << std::endl;
+      oss << asio_pool_.get_status() << std::endl;
 
       ServiceMap::const_iterator first1 = map_.begin();
       ServiceMap::const_iterator last1 = map_.end();
@@ -273,7 +299,11 @@ namespace apache { namespace thrift { namespace async {
         for (; first2!=last2; ++first2)
         {
           const ServiceEndPoint& sep = (*first2);
-          oss << sep.host_port << " -> " << sep.endpoint << std::endl;
+          oss << sep.host_port << " -> " << sep.endpoint << ' '
+            << (sep.local_host?"local":"non-local") << ' '
+            << "success=" << sep.success << ' '
+            << "failure=" << sep.failure << ' '
+            << std::endl;
         }
       }
 
