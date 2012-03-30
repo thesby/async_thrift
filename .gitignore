@@ -18,5 +18,5 @@ Release
 *.log
 
 gen-cpp
-server
-client
+*server
+*client
