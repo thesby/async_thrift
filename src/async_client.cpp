@@ -21,19 +21,16 @@ namespace apache { namespace thrift { namespace async {
   AsyncThriftClient::AsyncThriftClient()
     :BaseType()
   {
-    printf("[%u] %p AsyncThriftClient::AsyncThriftClient\n", (unsigned)pthread_self(), this);
   }
 
   AsyncThriftClient::AsyncThriftClient(
     const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
     :BaseType(socket)
   {
-    printf("[%u] %p AsyncThriftClient::AsyncThriftClient\n", (unsigned)pthread_self(), this);
   }
 
   AsyncThriftClient::~AsyncThriftClient()
   {
-    printf("[%u] %p AsyncThriftClient::~AsyncThriftClient\n", (unsigned)pthread_self(), this);
     assert(!pending_async_op_);
   }
 
@@ -66,8 +63,6 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncThriftClient::on_close(const boost::system::error_code& ec)
   {
-    printf("[%u] %p AsyncThriftClient::on_close\n", (unsigned)pthread_self(), this);
-
     if (socket_)
     {
       io_service_ = 0;
@@ -93,8 +88,6 @@ namespace apache { namespace thrift { namespace async {
   void AsyncThriftClient::on_handle_read(
     const boost::system::error_code& ec, size_t bytes_transferred)
   {
-    printf("[%u] %p AsyncThriftClient::on_handle_read %s\n", (unsigned)pthread_self(), this, ec.message().c_str());
-
     assert(pending_async_op_);
 
     if (ec)
@@ -109,8 +102,6 @@ namespace apache { namespace thrift { namespace async {
   void AsyncThriftClient::on_handle_write(
     const boost::system::error_code& ec, size_t bytes_transferred)
   {
-    printf("[%u] %p AsyncThriftClient::on_handle_write %s\n", (unsigned)pthread_self(), this, ec.message().c_str());
-
     assert(pending_async_op_);
 
     if (ec)
@@ -132,8 +123,6 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncThriftClient::on_handle_frame()
   {
-    printf("[%u] %p AsyncThriftClient::on_handle_frame\n", (unsigned)pthread_self(), this);
-
     boost::system::error_code ec;
     try
     {

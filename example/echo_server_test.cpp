@@ -45,12 +45,10 @@ struct Session
 
   Session(): timeout(0), result_count(0), ok_result_count(0)
   {
-    printf("[%u] %p Session\n", (unsigned)pthread_self(), this);
   }
 
   ~Session()
   {
-    printf("[%u] %p ~Session\n", (unsigned)pthread_self(), this);
   }
 };
 
@@ -60,8 +58,6 @@ void on_timeout(boost::shared_ptr<Session> session,
   if (ec != boost::asio::error::operation_aborted)
   {
     session->timer.reset();
-
-    printf("[%u] %p on_timeout\n", (unsigned)pthread_self(), session.get());
 
     for (size_t i=0; i<session->clients.size(); i++)
     {
@@ -85,8 +81,6 @@ void on_echo(boost::shared_ptr<Session> session,
              const boost::asio::ip::tcp::endpoint& endpoint,
              io_service_pool * pool)
 {
-  printf("[%u] %p on_echo: %s\n", (unsigned)pthread_self(), session.get(), ec.message().c_str());
-
   SessionClient& client = session->clients[client_slot];
   client.pending = false;
   session->result_count++;
@@ -105,12 +99,7 @@ void on_echo(boost::shared_ptr<Session> session,
   {
     if (session->timer)
     {
-      printf("[%u] %p on_echo: not timeout\n", (unsigned)pthread_self(), session.get());
       session->timer->cancel();
-    }
-    else
-    {
-      printf("[%u] %p on_echo: timeout\n", (unsigned)pthread_self(), session.get());
     }
 
     session.reset();
@@ -167,7 +156,6 @@ void simulate_client(int clients,
 
     client.rpc_channel.reset(new AsyncEchoServerClient(socket));
 
-    printf("[%u] %p simulate_client: client %p socket %p\n", (unsigned)pthread_self(), session.get(), client.rpc_channel.get(), socket.get());
     client.rpc_channel->set_strand(session->strand);
     client.request.__isset.message = true;
     client.request.message = "Hello World";

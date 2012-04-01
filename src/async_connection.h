@@ -110,7 +110,6 @@ namespace apache { namespace thrift { namespace async {
 
     void close()
     {
-      printf("[%u] %p close\n", (unsigned)pthread_self(), this);
       if (socket_ && socket_->is_open())
         socket_->close();
     }
@@ -194,13 +193,11 @@ namespace apache { namespace thrift { namespace async {
 
     void handle_read(const boost::system::error_code& ec, size_t bytes_transferred)
     {
-      printf("[%u] %p handle_read\n", (unsigned)pthread_self(), this);
       on_handle_read(ec, bytes_transferred);
     }
 
     void handle_write(const boost::system::error_code& ec, size_t bytes_transferred)
     {
-      printf("[%u] %p handle_write\n", (unsigned)pthread_self(), this);
       on_handle_write(ec, bytes_transferred);
     }
 
@@ -284,7 +281,6 @@ namespace apache { namespace thrift { namespace async {
     //must not throw
     virtual void on_close(const boost::system::error_code& ec)
     {
-      printf("[%u] %p on_close\n", (unsigned)pthread_self(), this);
       if (socket_)
       {
         io_service_ = 0;
@@ -301,7 +297,6 @@ namespace apache { namespace thrift { namespace async {
     //must not throw
     virtual void on_handle_read(const boost::system::error_code& ec, size_t bytes_transferred)
     {
-      printf("[%u] %p on_handle_read %s\n", (unsigned)pthread_self(), this, ec.message().c_str());
       if (ec)
       {
         on_close(ec);//current connection diminishes here
@@ -316,7 +311,6 @@ namespace apache { namespace thrift { namespace async {
     //must not throw
     virtual void on_handle_write(const boost::system::error_code& ec, size_t bytes_transferred)
     {
-      printf("[%u] %p on_handle_write %s\n", (unsigned)pthread_self(), this, ec.message().c_str());
       if (ec)
       {
         on_close(ec);//current connection diminishes here
