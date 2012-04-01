@@ -154,10 +154,10 @@ env.Program('echo_server_test',
    Source + ['example/echo_server_test.cpp'],
 )
 
-#env.Program('asio_pool_test',
-#   Source + ['test/asio_pool_test.cpp'],
-#)
+env.Program('asio_pool_test',
+   Source + ['test/asio_pool_test.cpp'],
+)
 
-#env.Program('service_manager_test',
-#   Source + ['test/service_manager_test.cpp'],
-#)
+env.Program('service_manager_test',
+   Source + ['test/service_manager_test.cpp'],
+)
