@@ -9,7 +9,7 @@
 #define ASIO_POOL_H
 
 #include <io_service_pool.h>
-#include <AsyncCommon.h>
+#include <async_common.h>
 
 namespace apache { namespace thrift { namespace async {
 

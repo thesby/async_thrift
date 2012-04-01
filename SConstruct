@@ -96,16 +96,14 @@ Command(output,
 
 env.StaticLibrary('async_thrift',
     [
-        'src/AsyncConnection.cpp',
-        'src/AsyncException.cpp',
-        'src/AsyncProcessor.cpp',
-        'src/AsyncThriftClient.cpp',
-        'src/AsyncThriftServerBase.cpp',
-        'src/AsyncThriftServer.cpp',
-        'src/AsyncThriftServerEx.cpp',
         'src/asio_pool.cpp',
-        'src/service_manager.cpp',
+        'src/async_client.cpp',
+        'src/async_exception.cpp',
+        'src/async_processor.cpp',
+        'src/async_server.cpp',
         'src/io_service_pool.cpp',
+        'src/service_manager.cpp',
+        'src/util.cpp',
     ]
 )
 
@@ -145,21 +143,21 @@ COMMON_LIBS = [
 env.Append(LIBS = COMMON_LIBS)
 
 env.Program('echo_server',
-   Source + ['example/EchoServer_server.cpp'],
+   Source + ['example/echo_server.cpp'],
 )
 
-env.Program('async_echo_client',
-   Source + ['example/AsyncEchoServerClientTest.cpp'],
+env.Program('echo_server_perf_test',
+   Source + ['example/echo_server_perf_test.cpp'],
 )
 
-env.Program('echo_perf_test',
-   Source + ['example/EchoServerPerfTest.cpp'],
+env.Program('echo_server_test',
+   Source + ['example/echo_server_test.cpp'],
 )
 
-env.Program('asio_pool_test',
-   Source + ['test/asio_pool_test.cpp'],
-)
+#env.Program('asio_pool_test',
+#   Source + ['test/asio_pool_test.cpp'],
+#)
 
-env.Program('service_manager_test',
-   Source + ['test/service_manager_test.cpp'],
-)
+#env.Program('service_manager_test',
+#   Source + ['test/service_manager_test.cpp'],
+#)

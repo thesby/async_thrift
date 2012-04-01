@@ -126,9 +126,7 @@ void t_cpp_generator::generate_async(t_service* tservice)
 
   //include headers(.h)
   f_async_header_
-    << "#include <AsyncException.h>//add include path to CPPFLAGS(-Ixxx)" << endl
-    << "#include <AsyncThriftClient.h>//add include path to CPPFLAGS(-Ixxx)" << endl
-    << "#include <AsyncProcessor.h>//add include path to CPPFLAGS(-Ixxx)" << endl
+    << "#include <async_client.h>//add include path to CPPFLAGS(-Ixxx)" << endl
     << "#include \"" << get_include_prefix(*get_program()) << svcname << ".h\"" << endl;
   if (base_tservice)
     f_async_header_ << "#include \"" << get_include_prefix(*get_program()) << async_base_svcname << ".h\"" << endl;
@@ -297,15 +295,14 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       << indent() << "if (!is_open()) {" << endl
       << indent() << tindent()
       << "boost::system::error_code ec(boost::system::posix_error::not_connected, boost::system::get_posix_category());" << endl
-      << indent() << tindent() << "throw boost::system::system_error(ec);" << endl
+      << indent() << tindent() << "callback(ec);" << endl
+      << indent() << tindent() << "return;" << endl
       << indent() << "}" << endl << endl
 
       << indent() << "uint32_t out_frame_size;" << endl
-      << indent() << "uint8_t * out_frame;" << endl
-      << indent() << "boost::system::error_code ec;" << endl << endl
+      << indent() << "uint8_t * out_frame;" << endl << endl
 
       << indent() << "boost::shared_ptr<AsyncOp> op(new AsyncOp);" << endl
-      << indent() << "async_op_list_.push_back(op);" << endl
       << indent() << "op->callback = callback;" << endl
       << indent() << "op->rpc_type = " << function_op_enums[i] << ";" << endl;
 
@@ -317,7 +314,8 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
       f_async_service_ << indent() << "op->is_oneway = true;" << endl << endl;
     else
       f_async_service_ << indent() << "op->is_oneway = false;" << endl << endl;
-    f_async_service_ << indent() << "pending_async_op_ = op;" << endl << endl;
+    f_async_service_ << indent() << "assert(!pending_async_op_);" << endl << endl;
+    f_async_service_ << indent() << "pending_async_op_.swap(op);" << endl << endl;
 
     const vector<t_field*>& args = function->get_arglist()->get_members();
     string arg_string;
@@ -798,7 +796,7 @@ void t_cpp_generator::generate_async_if_and_processor(t_service* tservice)
       << indent() << "output_protocol->writeMessageEnd();" << endl
       << indent() << "output_protocol->getTransport()->flush();" << endl
       << indent() << "output_protocol->getTransport()->writeEnd();" << endl
-      << indent() << "boost::system::error_code ec(boost::system::posix_error::bad_message, boost::system::get_posix_category());" << endl
+      << indent() << "boost::system::error_code ec = make_error_code(kAppWrongMethodName);" << endl
       << indent() << "callback(ec, false);" << endl
       << indent() << "return;" << endl;
   }

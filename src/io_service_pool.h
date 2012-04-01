@@ -30,11 +30,12 @@ namespace apache { namespace thrift { namespace async {
   class io_service_pool : private boost::noncopyable
   {
   public:
-    io_service_pool(size_t pool_size);
+    explicit io_service_pool(size_t pool_size);
     void run(bool enable_tss = true);
     void stop();
     // Use a round-robin scheme to choose the next io_service to use.
     boost::asio::io_service& get_io_service();
+    boost::asio::io_service& get_io_service(size_t index);
 
   private:
     typedef boost::shared_ptr<boost::asio::io_service> io_service_ptr;
