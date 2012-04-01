@@ -182,8 +182,8 @@ int main(int argc, char **argv)
     desc.add_options()
       ("help,h", "produce help message")
       ("port,p", po::value<int>()->default_value(12500), "listening port")
-      ("clients,c", po::value<int>()->default_value(1), "clients' number")
-      ("threadpool-size,t", po::value<int>()->default_value(1), "thread pool size");
+      ("clients,c", po::value<int>()->default_value(32), "clients' number")
+      ("threadpool-size,t", po::value<int>()->default_value(32), "thread pool size");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
