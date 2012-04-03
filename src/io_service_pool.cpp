@@ -5,13 +5,6 @@
 * @version
 *
 */
-// ~~~~~~~~~~~~~~~~~~~
-//
-// Copyright (c) 2003-2011 Christopher M. Kohlhoff (chris at kohlhoff dot com)
-//
-// Distributed under the Boost Software License, Version 1.0. (See accompanying
-// file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
 #include <io_service_pool.h>
 #include <boost/thread/tss.hpp>
 #include <boost/thread/thread.hpp>
@@ -52,6 +45,7 @@ namespace apache { namespace thrift { namespace async {
 
   void io_service_pool::run(bool enable_tss)
   {
+    work_.clear();
     for (size_t i=0; i<io_services_.size(); ++i)
     {
       work_ptr work(new boost::asio::io_service::work(*io_services_[i]));

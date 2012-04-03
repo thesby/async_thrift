@@ -161,3 +161,8 @@ env.Program('asio_pool_test',
 env.Program('service_manager_test',
    Source + ['test/service_manager_test.cpp'],
 )
+
+env.Program('io_service_pool_test',
+   Source + ['test/io_service_pool_test.cpp'],
+)
+

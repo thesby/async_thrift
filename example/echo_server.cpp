@@ -114,7 +114,7 @@ int main(int argc, char **argv)
 
     if (server_model == "threaded")
     {
-      std::cout << "TThreadedServer" << std::endl;
+      printf("TThreadedServer\n");
       boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
       boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
       boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
     }
     else if (server_model == "threadpool")
     {
-      std::cout << "TThreadPoolServer" << std::endl;
+      printf("TThreadPoolServer\n");
 
       boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
       boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
     }
     else if (server_model == "async")
     {
-      std::cout << "AsyncThriftServer async RPC" << std::endl;
+      printf("AsyncThriftServer async RPC\n");
 
       boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v6(), port);
       IOServicePool pool(threadpool_size);
@@ -160,7 +160,7 @@ int main(int argc, char **argv)
     }
     else
     {
-      std::cout << "AsyncThriftServer sync RPC" << std::endl;
+      printf("AsyncThriftServer sync RPC\n");
 
       boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v6(), port);
       IOServicePool pool(threadpool_size);
@@ -168,15 +168,11 @@ int main(int argc, char **argv)
       s_server->serve();
       s_server.reset();
     }
-    std::cout << "stopped" << std::endl;
+    printf("stopped\n");
   }
   catch (std::exception& e)
   {
-    std::cout << "caught: " << e.what() << std::endl;
-  }
-  catch (...)
-  {
-    std::cout << "caught: something" << std::endl;
+    printf("caught: %s\n", e.what());
   }
 
   return 0;
