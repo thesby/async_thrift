@@ -246,7 +246,8 @@ namespace apache { namespace thrift { namespace async {
       conn_manager_->del(this);
   }
 
-  void AsyncThriftServer::Impl::Connection::async_process(const boost::system::error_code& ec, bool is_oneway)
+  void AsyncThriftServer::Impl::Connection::async_process(
+    const boost::system::error_code& ec, bool is_oneway)
   {
     assert(async_rpc_);
     if (ec)

@@ -412,7 +412,8 @@ namespace apache { namespace thrift { namespace async {
                   new_endpoint_pool.pool.push_back(socket_sp);
                   socket_sp.reset();
 
-                  if (max_conn_per_endpoint_ && new_endpoint_pool.pool.size() > max_conn_per_endpoint_)
+                  if (max_conn_per_endpoint_
+                    && new_endpoint_pool.pool.size() > max_conn_per_endpoint_)
                     new_endpoint_pool.pool.resize(max_conn_per_endpoint_);
 
                   if (new_endpoint_pool.pool.size() < min_conn_per_endpoint_)

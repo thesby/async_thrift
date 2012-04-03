@@ -161,7 +161,8 @@ int main(int argc, char **argv)
     po::options_description desc("Options");
     desc.add_options()
       ("help,h", "produce help message")
-      ("backends,b", po::value<std::string>()->default_value("sdl-redis20:9094,sdl-redis21:9094"), "test backends")
+      ("backends,b", po::value<std::string>()->default_value("sdl-redis20:9094,sdl-redis21:9094"),
+       "test backends")
       ("thread_number,t", po::value<int>()->default_value(1), "test thread number");
 
     po::variables_map vm;

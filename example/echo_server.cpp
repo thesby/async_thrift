@@ -62,7 +62,8 @@ public:
 class AsyncEchoServerHandler : public AsyncEchoServerNull
 {
 public:
-  virtual void async_echo(Response& _return, const Request& request, ::apache::thrift::async::AsyncRPCCallback callback)
+  virtual void async_echo(Response& _return, const Request& request,
+    ::apache::thrift::async::AsyncRPCCallback callback)
   {
     _return.__isset.message = true;
     _return.message = request.message;
@@ -88,8 +89,10 @@ int main(int argc, char **argv)
     desc.add_options()
       ("help,h", "produce help message")
       ("port,p", po::value<int>()->default_value(12500), "listening port")
-      ("server-model,s", po::value<std::string>()->default_value("async"), "server model: async, sync, threaded, threadpool")
-      ("threadpool-size,t", po::value<int>()->default_value(32), "thread pool size(only for async/asio/threadpool model)");
+      ("server-model,s", po::value<std::string>()->default_value("async"),
+       "server model: async, sync, threaded, threadpool")
+      ("threadpool-size,t", po::value<int>()->default_value(32),
+       "thread pool size(only for async/asio/threadpool model)");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);

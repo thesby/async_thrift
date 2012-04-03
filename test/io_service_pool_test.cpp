@@ -47,13 +47,15 @@ void on_accept(boost::shared_ptr<boost::asio::ip::tcp::socket> sock_ptr,
 
     if (!should_end)
     {
-      sock_ptr->async_connect(endpoint, boost::bind(&on_accept, sock_ptr, endpoint, counter, pool, _1));
+      sock_ptr->async_connect(
+        endpoint, boost::bind(&on_accept, sock_ptr, endpoint, counter, pool, _1));
       pool->run();
     }
   }
   else
   {
-    sock_ptr->async_connect(endpoint, boost::bind(&on_accept, sock_ptr, endpoint, counter, pool, _1));
+    sock_ptr->async_connect(
+      endpoint, boost::bind(&on_accept, sock_ptr, endpoint, counter, pool, _1));
   }
 }
 
@@ -69,7 +71,8 @@ int main(int argc, char * argv[])
 
   boost::shared_ptr<boost::asio::ip::tcp::socket> sock_ptr
     (new boost::asio::ip::tcp::socket(pool.get_io_service()));
-  sock_ptr->async_connect(endpoint, boost::bind(&on_accept, sock_ptr, endpoint, &counter, &pool, _1));
+  sock_ptr->async_connect(
+    endpoint, boost::bind(&on_accept, sock_ptr, endpoint, &counter, &pool, _1));
 
   pool.run();
 
