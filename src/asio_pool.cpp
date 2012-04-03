@@ -6,6 +6,7 @@
 *
 */
 #include <asio_pool.h>
+#include <util.h>
 #include <map>
 
 namespace apache { namespace thrift { namespace async {
@@ -13,13 +14,6 @@ namespace apache { namespace thrift { namespace async {
   class AsioPool::Impl
   {
   private:
-    static std::string endpoint_to_string(const EndPoint& endpoint)
-    {
-      std::ostringstream oss;
-      oss << endpoint;
-      return oss.str();
-    }
-
     // 检测远程socket是否已断开
     // 注意:不使用fb303.getStatus,而是使用更底层的recv系统调用检测连接,更通用高效
     // 问题:所有的服务必须做好所有准备工作才能监听端口,因为端口打开,则AsioPool认为该服务可用

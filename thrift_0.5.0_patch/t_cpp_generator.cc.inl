@@ -391,7 +391,7 @@ void t_cpp_generator::generate_async_client(t_service* tservice)
         << indent() << "get_frame_size();" << endl << endl
         << indent() << "if (frame_size_ >= kMaxFrameSize || frame_size_ == 0) {" << endl
         << indent() << tindent() << "close();" << endl
-        << indent() << tindent() << "GlobalOutput.printf(\"%s illegal frame size: %u\", dump_address(socket_).c_str(), frame_size_);" << endl
+        << indent() << tindent() << "GlobalOutput.printf(\"%s illegal frame size: %u\", socket_address_to_string(socket_).c_str(), frame_size_);" << endl
         << indent() << tindent() << "boost::system::error_code ec;" << endl
         << indent() << tindent() << "if (frame_size_ >= kMaxFrameSize)" << endl
         << indent() << tindent() << tindent() << "ec = make_error_code(kProtoSizeLimit);" << endl

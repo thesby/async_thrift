@@ -214,7 +214,7 @@ namespace apache { namespace thrift { namespace async {
           if (frame_size_ >= kMaxFrameSize || frame_size_ == 0)
           {
             GlobalOutput.printf("%s illegal frame size: %u",
-              dump_address(socket_).c_str(), frame_size_);
+              socket_address_to_string(socket_).c_str(), frame_size_);
 
             boost::system::error_code ec;
             if (frame_size_ >= kMaxFrameSize)

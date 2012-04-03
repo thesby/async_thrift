@@ -12,8 +12,9 @@
 
 namespace apache { namespace thrift { namespace async {
 
-  std::string dump_address(
+  std::string socket_address_to_string(
     const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket);
+  std::string endpoint_to_string(const boost::asio::ip::tcp::endpoint& endpoint);
 
 } } } // namespace
 

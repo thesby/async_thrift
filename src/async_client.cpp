@@ -63,17 +63,7 @@ namespace apache { namespace thrift { namespace async {
 
   void AsyncThriftClient::on_close(const boost::system::error_code& ec)
   {
-    if (socket_)
-    {
-      io_service_ = 0;
-      if (socket_->is_open())
-      {
-        boost::system::error_code _ec;
-        socket_->close(_ec);
-      }
-      socket_.reset();
-      strand_.reset();
-    }
+    BaseType::on_close(ec);
 
     if (ec)
     {
