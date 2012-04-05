@@ -39,34 +39,67 @@ namespace apache { namespace thrift { namespace async {
       const EndPoint& endpoint,
       size_t timeout_ms)
     {
-      boost::system::error_code ec;
       SocketSP socket_sp;
-      socket_sp.reset(new SocketSP::value_type(io_service));
+      int sockfd;
+      boost::asio::ip::address addr = endpoint.address();
+      bool is_v4 = addr.is_v4();
+      struct sockaddr_in addr4;
+      struct sockaddr_in6 addr6;
+      const struct sockaddr * address;
+      socklen_t address_len;
 
-      socket_sp->open(endpoint.protocol());
-
-      int sockfd = socket_sp->native();
+      if (is_v4)
       {
-        // 设置SO_SNDTIMEO,它将作用于之后的connect操作
-        struct timeval timeout = {0, timeout_ms*1000};
-        ::setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-      }
+        sockfd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (sockfd == -1)
+          return socket_sp;
 
-      // 带超时的阻塞连接
-      socket_sp->connect(endpoint, ec);
+        addr4.sin_family = AF_INET;
+        addr4.sin_port = htons(endpoint.port());
+        addr4.sin_addr.s_addr = htonl(addr.to_v4().to_ulong());
 
-      if (ec)
-      {
-        socket_sp.reset();
-        GlobalOutput.printf("connect %s failed: %s\n",
-          endpoint_to_string(endpoint).c_str(), ec.message().c_str());
+        address = (const struct sockaddr *)&addr4;
+        address_len = sizeof(addr4);
       }
       else
       {
-        // 取消SO_SNDTIMEO
-        struct timeval timeout = {0, 0};
-        ::setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+        sockfd = socket(PF_INET6, SOCK_STREAM, IPPROTO_TCP);
+        if (sockfd == -1)
+          return socket_sp;
+
+        addr6.sin6_family = AF_INET6;
+        addr6.sin6_flowinfo = 0;
+        addr6.sin6_port = htons(endpoint.port());
+        boost::asio::ip::address_v6::bytes_type bytes = addr.to_v6().to_bytes();
+        memcpy(&addr6.sin6_addr, &bytes[0], 16);
+
+        address = (const struct sockaddr *)&addr6;
+        address_len = sizeof(addr6);
       }
+
+      {
+        struct timeval timeout = {0, timeout_ms*1000};
+        setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+      }
+
+      if (connect(sockfd, address, address_len) != 0)
+      {
+        close(sockfd);
+
+        char buf[128];
+        GlobalOutput.printf("connect %s failed: %s\n",
+          endpoint_to_string(endpoint).c_str(), strerror_r(errno, buf, sizeof(buf)));
+
+        return socket_sp;
+      }
+
+      {
+        struct timeval timeout = {0, 0};
+        setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+      }
+
+      socket_sp.reset(new SocketSP::value_type(io_service));
+      socket_sp->assign(is_v4?boost::asio::ip::tcp::v4():boost::asio::ip::tcp::v6(), sockfd);
       return socket_sp;
     }
 
@@ -273,8 +306,8 @@ namespace apache { namespace thrift { namespace async {
               else
               {
                 // 池正常
-                GlobalOutput.printf("%s[kConnected] ok\n",
-                  endpoint_to_string(endpoint).c_str());
+                //GlobalOutput.printf("%s[kConnected] ok\n",
+                //  endpoint_to_string(endpoint).c_str());
                 break;
               }
             }
@@ -466,6 +499,9 @@ namespace apache { namespace thrift { namespace async {
           }
         }
       }
+
+      if (!quick)
+        GlobalOutput.printf("asio pool's status:\n%s\n", get_status().c_str());
     }
 
     void probe()
@@ -545,10 +581,11 @@ namespace apache { namespace thrift { namespace async {
         endpoint_pool.pool.swap(tmp_pool);
       }
 
+      guard.unlock();
+
       // 立即发起一次快速状态监测
       quick_probe();
 
-      guard.unlock();
       clear_pool(&tmp_pool);
     }
 

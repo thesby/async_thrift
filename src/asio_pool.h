@@ -30,8 +30,8 @@ namespace apache { namespace thrift { namespace async {
     // probe_cycle是内部检测/保活的执行周期
     explicit AsioPool(IOServicePool& ios_pool,
       size_t max_conn_per_endpoint = 128,
-      size_t min_conn_per_endpoint = 5,
-      size_t connect_timeout = 50,
+      size_t min_conn_per_endpoint = 20,
+      size_t connect_timeout = 20,
       size_t probe_cycle = 10);
     ~AsioPool();
 
