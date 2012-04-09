@@ -499,9 +499,6 @@ namespace apache { namespace thrift { namespace async {
           }
         }
       }
-
-      if (!quick)
-        GlobalOutput.printf("asio pool's status:\n%s\n", get_status().c_str());
     }
 
     void probe()

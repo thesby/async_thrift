@@ -35,8 +35,12 @@ namespace apache { namespace thrift { namespace async {
       bool operator()(const ServiceEndPoint& a, const ServiceEndPoint& b)const
       {
         // local_host为true的排在前面,其次按照地址排序
-        return (a.local_host && !b.local_host)
-          || (!(a.local_host && !b.local_host) && a.endpoint < b.endpoint);
+        if (a.local_host && !b.local_host)
+          return true;
+        if (!a.local_host && b.local_host)
+          return false;
+        assert(a.local_host == b.local_host);
+        return a.endpoint < b.endpoint;
       }
     };
 
@@ -46,10 +50,11 @@ namespace apache { namespace thrift { namespace async {
     struct Service
     {
       SEPSet sep_set;
+      mutable size_t local_host_index;
       mutable SEPPtrVector sep_select_vec;// 辅助,用于随机选择使用
       mutable size_t sep_select_vec_count;// 辅助,用于随机选择使用
 
-      Service() :sep_select_vec_count(0) {}
+      Service() :local_host_index(0), sep_select_vec_count(0) {}
     };
 
     // 服务id->所有服务主机信息的映射
@@ -75,7 +80,7 @@ namespace apache { namespace thrift { namespace async {
       boost::asio::ip::tcp::resolver resolver(ios);
       boost::system::error_code ec;
 
-      for (size_t i=0; i<size; i++)
+      for (size_t i = 0; i < size; i++)
       {
         std::vector<std::string> host_port;
         boost::split(host_port, hosts_ports[i], boost::is_any_of(":"));
@@ -202,17 +207,20 @@ namespace apache { namespace thrift { namespace async {
 
     bool get(int id, SocketSP * socket_sp)
     {
-      size_t local_host_index = 0;
       boost::recursive_mutex::scoped_lock guard(mutex_);
       Service& service = map_[id];
       const SEPSet& sep_set = service.sep_set;
+      size_t& local_host_index = service.local_host_index;
       SEPPtrVector& sep_select_vec = service.sep_select_vec;
       size_t& sep_select_vec_count = service.sep_select_vec_count;
 
       // 如果服务数量有增减,或者该随机方案已经使用过一定次数,则重新选定随机方案
       if (sep_select_vec.size() != sep_set.size()
-        || sep_select_vec_count > 1024)// magic number
+        || sep_select_vec_count > 4096)// magic number
       {
+        GlobalOutput.printf("service manager status:\n%s\n",
+          get_status().c_str());
+
         sep_select_vec.clear();
         SEPSet::const_iterator first = sep_set.begin();
         SEPSet::const_iterator last = sep_set.end();
@@ -224,7 +232,7 @@ namespace apache { namespace thrift { namespace async {
         sep_select_vec_count = 0;
 
         size_t size = sep_select_vec.size();
-        for (; local_host_index<size; local_host_index++)
+        for (local_host_index = 0; local_host_index < size; local_host_index++)
         {
           if (!sep_select_vec[local_host_index]->local_host)
             break;
@@ -254,7 +262,7 @@ namespace apache { namespace thrift { namespace async {
       // 按照随机方案选择(非本机)
       size_t size = sep_select_vec.size();
       size_t non_local_size = size - local_host_index;
-      for (size_t i=local_host_index; i<size; i++)
+      for (size_t i = local_host_index; i < size; i++)
       {
         sep_ptr = sep_select_vec[local_host_index + (sep_select_vec_count++ % non_local_size)];
         if (asio_pool_.get(sep_ptr->endpoint, socket_sp))
