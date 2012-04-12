@@ -373,8 +373,7 @@ namespace apache { namespace thrift { namespace async {
 
           if (status != new_status)
           {
-            // 该池的状态被改变了(只可能是调用了del),本轮不处理,交给下一轮第一阶段处理
-            assert(new_status == kDeleting);
+            // 该池的状态被改变了,本轮不处理,交给下一轮第一阶段处理
             GlobalOutput.printf("%s[%s] became [%s]\n",
               endpoint_to_string(endpoint).c_str(),
               status_to_cstring(status),

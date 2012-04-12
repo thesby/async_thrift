@@ -12,6 +12,7 @@
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -47,6 +48,7 @@ namespace apache { namespace thrift { namespace async {
     std::vector<io_service_ptr> io_services_;
     std::vector<work_ptr> work_;
     size_t next_io_service_;
+    boost::mutex mutex_;
   };
 
   // make the convention of class name uniform

@@ -78,10 +78,15 @@ namespace apache { namespace thrift { namespace async {
 
   boost::asio::io_service& io_service_pool::get_io_service()
   {
-    boost::asio::io_service& io_service = *io_services_[next_io_service_];
-    ++next_io_service_;
-    if (next_io_service_ == io_services_.size())
-      next_io_service_ = 0;
+    size_t index;
+    {
+      boost::mutex::scoped_lock guard(mutex_);
+      index = next_io_service_;
+      ++next_io_service_;
+      if (next_io_service_ == io_services_.size())
+        next_io_service_ = 0;
+    }
+    boost::asio::io_service& io_service = *io_services_[index];
     return io_service;
   }
 
