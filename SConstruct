@@ -128,27 +128,31 @@ env.Append(LIBS = [
     'rt',
 ])
 
-env.Program('echo_server',
-    Source + ['example/echo_server.cpp'],
+env.Program('to_string_test',
+    Source + ['example/to_string_test.cpp'],
 )
 
-env.Program('echo_server_perf_test',
-    Source + ['example/echo_server_perf_test.cpp'],
-)
+#env.Program('echo_server',
+#    Source + ['example/echo_server.cpp'],
+#)
 
-env.Program('echo_server_test',
-    Source + ['example/echo_server_test.cpp'],
-)
+#env.Program('echo_server_perf_test',
+#    Source + ['example/echo_server_perf_test.cpp'],
+#)
 
-env.Program('asio_pool_test',
-    Source + ['test/asio_pool_test.cpp'],
-)
+#env.Program('echo_server_test',
+#    Source + ['example/echo_server_test.cpp'],
+#)
 
-env.Program('service_manager_test',
-    Source + ['test/service_manager_test.cpp'],
-)
+#env.Program('asio_pool_test',
+#    Source + ['test/asio_pool_test.cpp'],
+#)
 
-env.Program('io_service_pool_test',
-    Source + ['test/io_service_pool_test.cpp'],
-)
+#env.Program('service_manager_test',
+#    Source + ['test/service_manager_test.cpp'],
+#)
+
+#env.Program('io_service_pool_test',
+#    Source + ['test/io_service_pool_test.cpp'],
+#)
 

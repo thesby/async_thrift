@@ -9,6 +9,123 @@
 #include <string.h>
 #include <algorithm>
 
+void t_cpp_generator::generate_struct_tostring(std::ofstream& out, t_struct* tstruct, bool pointers)
+{
+  indent(out) <<
+    "void " << tstruct->get_name() << "::to_string(::std::string * s) const {" << endl;
+  indent_up();
+
+  string name = tstruct->get_name();
+  const vector<t_field*>& fields = tstruct->get_sorted_members();
+
+  indent(out) << "std::ostringstream oss;" << endl;
+  indent(out) << "oss << '(';" << endl;
+
+  for (size_t i=0; i<fields.size(); i++)
+  {
+    t_field* field = fields[i];
+    t_type* type = field->get_type();
+    bool optional = field->get_req() == t_field::T_OPTIONAL;
+    string field_name = field->get_name();
+
+    if (optional)
+    {
+      indent(out) << "if (__isset." << field_name << ") {" << endl;
+      indent_up();
+    }
+
+    indent(out) << "oss << \"" << field_name << " = \";" << endl;
+    if (type->is_list())
+    {
+      bool is_string = ((t_list*)type)->get_elem_type()->is_string();
+
+      indent(out) << "oss << '[';" << endl;
+      indent(out) << type_name(type) << "::const_iterator first = " << field_name << ".begin(), last = " << field_name << ".end();" << endl;
+      indent(out) << "for (; first!=last; ++first) {" << endl;
+
+      indent_up();
+      if (is_string)
+        indent(out) << "oss << \"'''\" << (*first) << \"'''\" << ',' << std::endl;" << endl;
+      else
+        indent(out) << "oss << (*first) << ',' << std::endl;" << endl;
+      indent_down();
+
+      indent(out) << "}" << endl;
+
+      indent(out) << "oss << ']' << std::endl;" << endl;
+    }
+    else if (type->is_set())
+    {
+      bool is_string = ((t_set*)type)->get_elem_type()->is_string();
+
+      indent(out) << "oss << '{';" << endl;
+      indent(out) << type_name(type) << "::const_iterator first = " << field_name << ".begin(), last = " << field_name << ".end();" << endl;
+      indent(out) << "for (; first!=last; ++first) {" << endl;
+
+      indent_up();
+      if (is_string)
+        indent(out) << "oss << \"'''\" << (*first) << \"'''\" << ',' << std::endl;" << endl;
+      else
+        indent(out) << "oss << (*first) << ',' << std::endl;" << endl;
+      indent_down();
+
+      indent(out) << "}" << endl;
+
+      indent(out) << "oss << '}' << std::endl;" << endl;
+    }
+    else if (type->is_map())
+    {
+      bool k_is_string = ((t_map*)type)->get_key_type()->is_string();
+      bool v_is_string = ((t_map*)type)->get_val_type()->is_string();
+
+      indent(out) << "oss << '{';" << endl;
+      indent(out) << type_name(type) << "::const_iterator first = " << field_name << ".begin(), last = " << field_name << ".end();" << endl;
+      indent(out) << "for (; first!=last; ++first) {" << endl;
+
+      indent_up();
+      if (k_is_string)
+        indent(out) << "oss << \"'''\" << (*first).first << \"'''\" << ':';" << endl;
+      else
+        indent(out) << "oss << (*first).first << ':';" ;
+      if (v_is_string)
+        indent(out) << "oss << \"'''\" << (*first).second << \"'''\" << std::endl;" << endl;
+      else
+        indent(out) << "oss << (*first).second << std::endl;" << endl;
+      indent_down();
+
+      indent(out) << "}" << endl;
+
+      indent(out) << "oss << '}' << std::endl;" << endl;
+    }
+    else if (type->is_string())
+    {
+      indent(out) << "oss << \"'''\" << " << field_name << "<< \"'''\" << std::endl;" << endl;
+    }
+    else
+    {
+      indent(out) << "oss << " << field_name << " << std::endl;" << endl;
+    }
+
+    if (optional)
+    {
+      indent_down();
+      indent(out) << "} else {" << endl;
+      indent_up();
+      indent(out) << "oss << \"" << field_name << " is not set\" << std::endl;" << endl;
+      indent_down();
+      indent(out) << "}" << endl;
+    }
+
+    out << endl;
+  }
+
+  indent(out) << "oss << ')';" << endl;
+  indent(out) << "*s = oss.str();" << endl;
+
+  indent_down();
+  indent(out) << "}" << endl << endl;
+}
+
 string t_cpp_generator::async_if_function_signature(t_function * function,
                                                     const string& prefix,
                                                     bool name_params)

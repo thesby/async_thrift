@@ -27,6 +27,30 @@ struct Response {
 }
 
 
+struct TestStruct {
+  1: optional i32 f1,
+  2: optional i64 f2,
+  3: optional double f3,
+  4: optional string f4,
+  5: required i32 f5,
+  6: required i64 f6,
+  7: required double f7,
+  8: required string f8,
+
+  9: optional list<i32> f9,
+  10: optional list<string> f10,
+  11: optional list<Request> f11,
+
+  12: optional set<i32> f12,
+  13: optional set<double> f13,
+  14: optional set<string> f14,
+
+  15: optional map<i32, i32> f15,
+  16: optional map<double, Response> f16,
+  17: optional map<string, string> f17,
+}
+
+
 service EchoServer extends base.BaseServer {
   Response echo(1:required Request request),
   i32 echo2(1:required i32 i),

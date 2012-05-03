@@ -90,10 +90,11 @@ class t_cpp_generator : public t_oop_generator {
   void print_const_value(std::ofstream& out, std::string name, t_type* type, t_const_value* value);
   std::string render_const_value(std::ofstream& out, std::string name, t_type* type, t_const_value* value);
 
-  void generate_struct_definition    (std::ofstream& out, t_struct* tstruct, bool is_exception=false, bool pointers=false, bool read=true, bool write=true);
+  void generate_struct_definition    (std::ofstream& out, t_struct* tstruct, bool is_exception=false, bool pointers=false, bool read=true, bool write=true, bool tostring=false);
   void generate_struct_fingerprint   (std::ofstream& out, t_struct* tstruct, bool is_definition);
   void generate_struct_reader        (std::ofstream& out, t_struct* tstruct, bool pointers=false);
   void generate_struct_writer        (std::ofstream& out, t_struct* tstruct, bool pointers=false);
+  void generate_struct_tostring      (std::ofstream& out, t_struct* tstruct, bool pointers=false);
   void generate_struct_result_writer (std::ofstream& out, t_struct* tstruct, bool pointers=false);
 
   /**
@@ -293,6 +294,7 @@ void t_cpp_generator::init_generator() {
 
   // Include base types
   f_types_ <<
+    "#include <sstream>" << endl <<
     "#include <Thrift.h>" << endl <<
     "#include <TApplicationException.h>" << endl <<
     "#include <protocol/TProtocol.h>" << endl <<
@@ -633,13 +635,14 @@ string t_cpp_generator::render_const_value(ofstream& out, string name, t_type* t
  * @param tstruct The struct definition
  */
 void t_cpp_generator::generate_cpp_struct(t_struct* tstruct, bool is_exception) {
-  generate_struct_definition(f_types_, tstruct, is_exception);
+  generate_struct_definition(f_types_, tstruct, is_exception, false, true, true, true);
   generate_struct_fingerprint(f_types_impl_, tstruct, true);
   generate_local_reflection(f_types_, tstruct, false);
   generate_local_reflection(f_types_impl_, tstruct, true);
   generate_local_reflection_pointer(f_types_impl_, tstruct);
   generate_struct_reader(f_types_impl_, tstruct);
   generate_struct_writer(f_types_impl_, tstruct);
+  generate_struct_tostring(f_types_impl_, tstruct);
 }
 
 /**
@@ -653,7 +656,8 @@ void t_cpp_generator::generate_struct_definition(ofstream& out,
                                                  bool is_exception,
                                                  bool pointers,
                                                  bool read,
-                                                 bool write) {
+                                                 bool write,
+                                                 bool tostring) {
   string extends = "";
   if (is_exception) {
     extends = " : public ::apache::thrift::TException";
@@ -843,12 +847,27 @@ void t_cpp_generator::generate_struct_definition(ofstream& out,
     out <<
       indent() << "uint32_t write(::apache::thrift::protocol::TProtocol* oprot) const;" << endl;
   }
+  if (tostring) {
+    out <<
+      indent() << "void to_string(::std::string * s) const;" << endl;
+  }
   out << endl;
 
   indent_down();
   indent(out) <<
     "};" << endl <<
     endl;
+
+  if (tostring) {
+    out << indent() << "inline std::ostream& operator<<(std::ostream& os, const " << tstruct->get_name() << "& obj) {" << endl;
+    indent_up();
+    out << indent() << "::std::string s;" << endl
+      << indent() << "obj.to_string(&s);" << endl
+      << indent() << "os << s;" << endl
+      << indent() << "return os;" << endl;
+    indent_down();
+    out << indent() << "}" << endl << endl;
+  }
 }
 
 /**
