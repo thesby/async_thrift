@@ -218,8 +218,7 @@ namespace apache { namespace thrift { namespace async {
       if (sep_select_vec.size() != sep_set.size()
         || sep_select_vec_count > 4096)// magic number
       {
-        GlobalOutput.printf("service manager status:\n%s\n",
-          get_status().c_str());
+        // GlobalOutput.printf("service manager status:\n%s\n", get_status().c_str());
 
         sep_select_vec.clear();
         SEPSet::const_iterator first = sep_set.begin();
@@ -238,12 +237,16 @@ namespace apache { namespace thrift { namespace async {
             break;
         }
 
+        // FIXME 暂时去掉优先连本机的策略 by yafei.zhang 2012-05-24
+        local_host_index = 0;
+
         // 随机打乱,前部分是local_host的服务,后部分是非local_host的服务
         std::random_shuffle(sep_select_vec.begin(), sep_select_vec.begin()+local_host_index);
         std::random_shuffle(sep_select_vec.begin()+local_host_index, sep_select_vec.end());
       }
 
       const ServiceEndPoint * sep_ptr;
+
       // 按照随机方案选择(本机)
       for (size_t i=0; i<local_host_index; i++)
       {
