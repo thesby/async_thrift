@@ -94,7 +94,9 @@ class t_cpp_generator : public t_oop_generator {
   void generate_struct_fingerprint   (std::ofstream& out, t_struct* tstruct, bool is_definition);
   void generate_struct_reader        (std::ofstream& out, t_struct* tstruct, bool pointers=false);
   void generate_struct_writer        (std::ofstream& out, t_struct* tstruct, bool pointers=false);
-  void generate_struct_tostring      (std::ofstream& out, t_struct* tstruct, bool pointers=false);
+  void generate_type_tostring        (std::ofstream& out, t_type * type, const string& field_name, int recursive);
+  void generate_field_tostring       (std::ofstream& out, t_field * field);
+  void generate_tostring             (std::ofstream& out, t_struct * tstruct, bool pointers=false);
   void generate_struct_result_writer (std::ofstream& out, t_struct* tstruct, bool pointers=false);
 
   /**
@@ -642,7 +644,7 @@ void t_cpp_generator::generate_cpp_struct(t_struct* tstruct, bool is_exception) 
   generate_local_reflection_pointer(f_types_impl_, tstruct);
   generate_struct_reader(f_types_impl_, tstruct);
   generate_struct_writer(f_types_impl_, tstruct);
-  generate_struct_tostring(f_types_impl_, tstruct);
+  generate_tostring(f_types_impl_, tstruct);
 }
 
 /**

@@ -17,6 +17,6 @@ Release
 *_bench
 *.log
 
-gen-cpp
+gen-*
 *server
 *client

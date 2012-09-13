@@ -1,13 +1,12 @@
 /** @file
-* @brief asio tcp socket pool test
-* @author yafei.zhang@langtaojin.com
-* @date
-* @version
-*
-*/
+ * @brief asio tcp socket pool test
+ * @author yafei.zhang@langtaojin.com
+ * @date
+ * @version
+ *
+ */
 #include <asio_pool.h>
 #include <gen-cpp/AsyncFacebookService.h>
-
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>

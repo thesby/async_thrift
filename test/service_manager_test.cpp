@@ -1,13 +1,12 @@
 /** @file
-* @brief service manager test
-* @author yafei.zhang@langtaojin.com
-* @date
-* @version
-*
-*/
+ * @brief service manager test
+ * @author yafei.zhang@langtaojin.com
+ * @date
+ * @version
+ *
+ */
 #include <service_manager.h>
 #include <gen-cpp/AsyncFacebookService.h>
-
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
