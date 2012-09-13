@@ -7,6 +7,7 @@
  */
 #ifndef SERVER_BENCHMARK_H
 #define SERVER_BENCHMARK_H
+
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/time.h>

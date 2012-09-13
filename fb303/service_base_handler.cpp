@@ -6,6 +6,7 @@
  *
  */
 #include "service_base_handler.h"
+#include <boost/asio/ip/host_name.hpp>
 
 namespace thrift_ext {
 
@@ -17,8 +18,14 @@ namespace thrift_ext {
     sstatus_.__isset.group = true;
     sstatus_.__isset.host = true;
     sstatus_.__isset.service_ = true;
-    sstatus_.group = group;
-    sstatus_.host = host;
+    if (!group.empty())
+      sstatus_.group = group;
+    else
+      sstatus_.group = "default";
+    if (!host.empty())
+      sstatus_.host = host;
+    else
+      sstatus_.host = boost::asio::ip::host_name();
     sstatus_.service_ = service;
 
     sstatus_rt_.reset(new ServiceStatusRT);
