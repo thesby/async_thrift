@@ -7,14 +7,16 @@
 options.lnt
 
 //our code
+-e578
 -esym(14,signal_handler)
--esym(578,*::AsyncRPCCallback,*::AsyncProcessorCallback)//symbol hides symbol
+-esym(18,sigevent::_sigev_un)
 -esym(715,argc,argv)
 -esym(818,argv)
--esym(1788,guard)//guard mode
--esym(1764,e)//exception object may not be caught as a const reference
-
--e1566//-sem(*::Stat::clear,initializer) does not work
+-esym(1764,e)
+-esym(1788,guard)
+-sem(__ns_253465568_asio_pool_test::Stat::clear,initializer)
+-sem(apache::thrift::async::AsioPool::Impl::Stats::clear,initializer)
+-sem(__ns_119979568_service_manager_te::Stat::clear,initializer)
 
 //source files
 async/asio_pool.cpp

@@ -1,38 +1,53 @@
--e451//header guard
--e537//header re-included
+-e451
+-e537
 
--e457//thread
--e459//thread
+-e457
+-e459
 
--e641//converting enum to int
--e655//bit-wise operation of enum
--e717//do ... while(0)
--e1550//exception lists do not match
--e1551//potential exception by dtor
--e1725//class member can be a reference
--e1736//redundant access specifier
--e1793//pass temporary objects as parameters
+-e641
+-e655
+-e717
+-e788
+-e1550
+-e1551
+-e1704
+-e1705
+-e1712
+-e1725
+-e1732
+-e1733
+-e1736
+-e1793
 
-//libraries
+//libc
 -emacro(530,va_start)
 -emacro(534,va_start)
--esym(18, sigevent::_sigev_un)
 -esym(526,*__builtin_va_start)
 -esym(628,*__builtin_va_start)
 -esym(666,assert)
--esym(534,gettimeofday,localtime_r,fflush)
+-esym(534,gettimeofday,gethostname,localtime_r,fflush,signal,time,clock_gettime)
+
+//libstdc++
+-esym(18,std::*)
+-esym(1023,*operator*)
+-esym(534,std::set_new_handler)
 -sem(std::vector::push_back,1p,custodial(1))
 
 //boost
--e10//expecting identifier or other declarator
--e54//division by 0
--e78//symbol 'T' typedef'ed at location unknown used in expression
--e84//sizeof object is zero or object is undefined
--e506//constant value boolean
--e1048//expected a constant expression
+-e10
+-e54
+-e78
+-e84
+-e506
+-e1048
+-e1702
+-e1703
 -esym(18,boost::*)
 -esym(39,boost::*)
 -esym(114,boost::*)
+-esym(665,BOOST_FOREACH*)
+-esym(666,BOOST_FOREACH*)
+-esym(1023,boost::*)
 -esym(1075,*::_1)
 -esym(1075,*::_2)
 -esym(1075,*::_3)
@@ -42,32 +57,21 @@
 -esym(1509,*noncopyable)
 -sem(boost::thread_specific_ptr::reset,1p,custodial(1))
 
-//C++ overload
--esym(1023,*operator%)
--esym(1702,*operator%)
--esym(1703,*operator%)
--esym(1702,*operator-)
--esym(1702,*operator+)
--esym(1702,*operator!=)
--esym(1702,*operator==)
--esym(1702,*operator<)
--esym(1702,*operator<=)
--esym(1702,*operator>)
--esym(1702,*operator>=)
-
 //multi files
 -esym(14,main)
--e526//not defined
--e714//not referenced
--e754//not referenced
--e756//not referenced
--e757//not referenced
--e758//not referenced
--e768//not referenced
--e769//not referenced
--e1526//not defined
--e1527//not defined
--e1714//not referenced
--e1715//not referenced
--e1716//not referenced
--e1795//not referenced
+-e526
+-e714
+-e754
+-e756
+-e757
+-e758
+-e759
+-e765
+-e768
+-e769
+-e1526
+-e1527
+-e1714
+-e1715
+-e1716
+-e1795
