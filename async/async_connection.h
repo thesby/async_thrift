@@ -9,7 +9,7 @@
 #define ASYNC_CONNECTION_H
 
 #include <async_exception.h>
-#include <util.h>
+#include <async_util.h>
 
 namespace apache { namespace thrift { namespace async {
 
@@ -24,8 +24,8 @@ namespace apache { namespace thrift { namespace async {
     protected:
       static const size_t kBufferSize = 4 * 1024;
       static const size_t kFrameSize = sizeof(uint32_t);
-      //NOTICE: RPC packet size must not be greater than kMaxFrameSize.
-      //100MB is a large limitation, modify it manually if you may break it.
+      // NOTICE: RPC packet size must not be greater than kMaxFrameSize.
+      // 100MB is a large limitation, modify it manually if you may break it.
       static const uint32_t kMaxFrameSize = 100 * 1024 * 1024;
 
       enum kState
@@ -34,18 +34,18 @@ namespace apache { namespace thrift { namespace async {
         kReadFrame,
       };
 
-      //about asio
+      // about asio
       boost::asio::io_service * io_service_;
       boost::shared_ptr<boost::asio::ip::tcp::socket> socket_;
       boost::shared_ptr<boost::asio::io_service::strand> strand_;
 
-      //about buffer
+      // about buffer
       std::vector<uint8_t> recv_buffer_;
       uint32_t bytes_recv_;
       uint32_t frame_size_;
       kState state_;
 
-      //about thrift
+      // about thrift
       boost::shared_ptr<TMemoryBuffer> input_buffer_;
       boost::shared_ptr<TMemoryBuffer> output_buffer_;
       boost::shared_ptr<TFramedTransport> input_framed_;
@@ -89,10 +89,10 @@ namespace apache { namespace thrift { namespace async {
         return *socket_;
       }
 
-      //NOTICE:
-      //If needed, 'set_strand' must be invoked before any operations.
-      //Usually, we use one 'strand' object during one conceptual 'session'
-      //to synchronize handler's invocation.
+      // NOTICE:
+      // If needed, 'set_strand' must be invoked before any operations.
+      // Usually, we use one 'strand' object during one conceptual 'session'
+      // to synchronize handler's invocation.
       boost::shared_ptr<boost::asio::io_service::strand>& get_strand()
       {
         return strand_;
@@ -114,16 +114,16 @@ namespace apache { namespace thrift { namespace async {
           socket_->close();
       }
 
-      //start asynchronous receiving
-      //restart is true, restart a new receive
-      //restart is false, continue to receive
+      // start asynchronous receiving
+      // restart is true, restart a new receive
+      // restart is false, continue to receive
       void start_recv(bool restart)
       {
         if (restart)
         {
           if (recv_buffer_.size() > kMaxFrameSize)
           {
-            //This is the only chance to shrink recv_buffer_
+            // This is the only chance to shrink recv_buffer_
             std::vector<uint8_t>(kBufferSize).swap(recv_buffer_);
           }
           bytes_recv_ = 0;
@@ -208,7 +208,7 @@ namespace apache { namespace thrift { namespace async {
           case kReadFrameSize:
             if (bytes_recv_ >= kFrameSize)
             {
-              //got the frame length
+              // got the frame length
               get_frame_size();
 
               if (frame_size_ >= kMaxFrameSize || frame_size_ == 0)
@@ -221,17 +221,17 @@ namespace apache { namespace thrift { namespace async {
                   ec = make_error_code(kProtoSizeLimit);
                 else
                   ec = make_error_code(kProtoNegativeSize);
-                on_close(ec);//current connection diminishes here
+                on_close(ec);// current connection diminishes here
                 return;
               }
 
-              //fall through to "case kReadFrame"
-              //the buffer may contains a complete frame, or a partial frame
+              // fall through to "case kReadFrame"
+              // the buffer may contains a complete frame, or a partial frame
               state_ = kReadFrame;
             }
             else
             {
-              //continue to read
+              // continue to read
               start_recv(false);
               break;
             }
@@ -239,46 +239,46 @@ namespace apache { namespace thrift { namespace async {
           case kReadFrame:
             if (bytes_recv_ >= frame_size_+kFrameSize)
             {
-              //got a complete frame, handle it
+              // got a complete frame, handle it
               input_buffer_->resetBuffer(&recv_buffer_[0], frame_size_+kFrameSize);
               output_buffer_->resetBuffer();
               on_handle_frame();
             }
             else
             {
-              //continue to read
+              // continue to read
               start_recv(false);
             }
             break;
         }
       }
 
-      //retrieve all stuffs in 'output_buffer_' and start asynchronous writing
+      // retrieve all stuffs in 'output_buffer_' and start asynchronous writing
       void start_write_output_buffer()
       {
         uint32_t out_frame_size;
         uint8_t * out_frame;
-        output_buffer_->getBuffer(&out_frame, &out_frame_size);//not throw
+        output_buffer_->getBuffer(&out_frame, &out_frame_size);// not throw
 
         if (strand_)
         {
           boost::asio::async_write(*socket_,
               boost::asio::buffer(out_frame, out_frame_size),
-              boost::asio::transfer_all(),//transfer_all
+              boost::asio::transfer_all(),// transfer_all
               strand_->wrap(boost::bind(&AsyncConnection::handle_write, this, _1, _2)));
         }
         else
         {
           boost::asio::async_write(*socket_,
               boost::asio::buffer(out_frame, out_frame_size),
-              boost::asio::transfer_all(),//transfer_all
+              boost::asio::transfer_all(),// transfer_all
               boost::bind(&AsyncConnection::handle_write, this, _1, _2));
         }
       }
 
     protected:
-      //virtual functions
-      //must not throw
+      // virtual functions
+      // must not throw
       virtual void on_close(const boost::system::error_code& ec)
       {
         if (socket_)
@@ -294,12 +294,12 @@ namespace apache { namespace thrift { namespace async {
         }
       }
 
-      //must not throw
+      // must not throw
       virtual void on_handle_read(const boost::system::error_code& ec, size_t bytes_transferred)
       {
         if (ec)
         {
-          on_close(ec);//current connection diminishes here
+          on_close(ec);// current connection diminishes here
           return;
         }
 
@@ -308,24 +308,24 @@ namespace apache { namespace thrift { namespace async {
         handle_buffer();
       }
 
-      //must not throw
+      // must not throw
       virtual void on_handle_write(const boost::system::error_code& ec, size_t bytes_transferred)
       {
         if (ec)
         {
-          on_close(ec);//current connection diminishes here
+          on_close(ec);// current connection diminishes here
           return;
         }
 
         assert(bytes_recv_ >= frame_size_+kFrameSize);
         if (bytes_recv_ == frame_size_+kFrameSize)
         {
-          //buffer is empty, restart
+          // buffer is empty, restart
           start_recv(true);
         }
         else
         {
-          //consume the previous frame buffer, and handle the buffer remained
+          // consume the previous frame buffer, and handle the buffer remained
           memcpy(&recv_buffer_[0], &recv_buffer_[frame_size_+kFrameSize],
               bytes_recv_-frame_size_-kFrameSize);
           bytes_recv_ -= (frame_size_+kFrameSize);
@@ -335,7 +335,7 @@ namespace apache { namespace thrift { namespace async {
         }
       }
 
-      //must not throw
+      // must not throw
       virtual void on_handle_frame()
       {
       }

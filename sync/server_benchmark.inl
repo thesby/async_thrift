@@ -19,8 +19,8 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/thread.hpp>
 
-namespace
-{
+namespace {
+
   bool g_stop_flag = false;
 
   extern "C" void signal_handler(int signo)
@@ -80,8 +80,8 @@ namespace
         double successful_qps = ((double)(success_bak))/seconds;
 
         fprintf(fp, "Time cost: %d seconds\n", seconds);
-        fprintf(fp, "Success: %lu\n", success_bak);
-        fprintf(fp, "Failure: %lu\n", failure_bak);
+        fprintf(fp, "Success: %lu\n", static_cast<unsigned long>(success_bak));
+        fprintf(fp, "Failure: %lu\n", static_cast<unsigned long>(failure_bak));
         fprintf(fp, "Actual QPS: %f\n", qps);
         fprintf(fp, "Actual successful QPS: %f\n", successful_qps);
         fflush(fp);
@@ -183,12 +183,12 @@ namespace
       boost::asio::io_service io_service_;
       boost::asio::deadline_timer dump_timer_;
 
-      //stat
+      // stat
       boost::mutex stat_mutex_;
       int64_t success_;
       int64_t failure_;
 
-      //rtt
+      // rtt
       boost::mutex rtt_mutex_;
       std::map<int32_t, int64_t> rtt_map_;
   };

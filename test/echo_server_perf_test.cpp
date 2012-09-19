@@ -5,6 +5,7 @@
  * @version
  *
  */
+//lint +libh(gen-cpp/AsyncEchoServer.h)
 #include "gen-cpp/AsyncEchoServer.h"
 #include <server_benchmark.inl>
 #include <iostream>
@@ -29,9 +30,9 @@ static void pressure_test_thread(const std::string& host, int port)
   bool success;
 
   boost::shared_ptr<TSocket> socket(new TSocket(host, port));
-  boost::shared_ptr<TTransport> transport(new TFramedTransport(socket));
-  boost::shared_ptr<TProtocol> protocol(new TBinaryProtocol(transport));
-  EchoServerClient client(protocol);
+  boost::shared_ptr<TTransport> _transport(new TFramedTransport(socket));
+  boost::shared_ptr<TProtocol> _protocol(new TBinaryProtocol(_transport));
+  EchoServerClient client(_protocol);
   Response _return;
   Request request;
 
@@ -43,15 +44,14 @@ static void pressure_test_thread(const std::string& host, int port)
     begin = boost::posix_time::microsec_clock::local_time();
     try
     {
-      if (!transport->isOpen())
-        transport->open();
+      if (!_transport->isOpen())
+        _transport->open();
 
       client.echo(_return, request);
       success = true;
     }
-    catch(apache::thrift::TException& e)
+    catch (::apache::thrift::TException& /*e*/)
     {
-      //printf("caught an apache::thrift::TException %s\n", e.what());
       success = false;
     }
     end = boost::posix_time::microsec_clock::local_time();
@@ -65,17 +65,17 @@ static void pressure_test_thread(const std::string& host, int port)
     ServerBenchmarkStat::instance()->inc_rtt(ms);
   }
 
-  if (transport->isOpen())
-    transport->close();
+  if (_transport->isOpen())
+    _transport->close();
 }
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
   try
   {
     namespace po = boost::program_options;
     po::options_description desc("Options");
-    desc.add_options()
+    (void)desc.add_options()
       ("help", "produce help message")
       ("host,h", po::value<std::string>()->default_value("localhost"), "host")
       ("port,p", po::value<int>()->default_value(12500), "port")
@@ -95,22 +95,17 @@ int main(int argc, char **argv)
     int port = vm["port"].as<int>();
     int threadpool_size = vm["threadpool-size"].as<int>();
 
-    install_signal_handler();
+    (void)install_signal_handler();
 
     boost::thread_group thread_group;
     for (int i=0; i<threadpool_size; ++i)
-    {
-      thread_group.create_thread(boost::bind(pressure_test_thread, host, port));
-    }
+      (void)thread_group.create_thread(boost::bind(pressure_test_thread, host, port));
     thread_group.join_all();
   }
   catch (std::exception& e)
   {
     printf("caught: %s\n", e.what());
   }
-  catch (...)
-  {
-    printf("caught: something\n");
-  }
+
   return 0;
 }

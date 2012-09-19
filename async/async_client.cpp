@@ -5,7 +5,9 @@
  * @version
  *
  */
-#include <async_client.h>
+#include "async_client.h"
+
+//lint -esym(578,socket) symbol hides symbol
 
 namespace apache { namespace thrift { namespace async {
 
@@ -19,13 +21,13 @@ namespace apache { namespace thrift { namespace async {
   }
 
   AsyncThriftClient::AsyncThriftClient()
-    :BaseType()
+    : BaseType()
   {
   }
 
   AsyncThriftClient::AsyncThriftClient(
       const boost::shared_ptr<boost::asio::ip::tcp::socket>& socket)
-    :BaseType(socket)
+    : BaseType(socket)
   {
   }
 
@@ -93,6 +95,7 @@ namespace apache { namespace thrift { namespace async {
       const boost::system::error_code& ec, size_t bytes_transferred)
   {
     assert(pending_async_op_);
+    (void)bytes_transferred;
 
     if (ec)
     {
@@ -102,7 +105,7 @@ namespace apache { namespace thrift { namespace async {
 
     if (pending_async_op_->is_oneway)
     {
-      //invoke callback successfully
+      // invoke callback successfully
       complete_pending_op(ec);
     }
     else
@@ -116,7 +119,7 @@ namespace apache { namespace thrift { namespace async {
     boost::system::error_code ec;
     try
     {
-      fill_result(*pending_async_op_);//may throw
+      fill_result(*pending_async_op_);// may throw
       ec.assign(boost::system::posix_error::success, boost::system::get_posix_category());
     }
     catch (TApplicationException& e)
@@ -153,4 +156,4 @@ namespace apache { namespace thrift { namespace async {
     complete_pending_op(ec);
   }
 
-} } } // namespace
+} } }

@@ -12,54 +12,57 @@
 
 using namespace ::apache::thrift::async;
 
-struct Counter
-{
-  unsigned times;
-  unsigned loop;
-  boost::mutex mutex;
-};
+namespace {
 
-void on_accept(boost::shared_ptr<boost::asio::ip::tcp::socket> sock_ptr,
-    const boost::asio::ip::tcp::endpoint& endpoint,
-    Counter * counter,
-    IOServicePool * pool,
-    const boost::system::error_code& ec)
-{
-  printf("on_accept %s %u %u\n",
-      ec.message().c_str(), counter->times, counter->loop);
-
-  sock_ptr->close();
-
-  bool new_loop;
-  bool should_end = false;
-  counter->mutex.lock();
-  new_loop = (--counter->times == 0);
-  if (new_loop)
+  struct Counter
   {
-    counter->times = 16;
-    should_end = (--counter->loop == 0);
-  }
-  counter->mutex.unlock();
+    unsigned long times;
+    unsigned long loop;
+    boost::mutex mutex;
+  };
 
-  if (new_loop)
+  void on_accept(boost::shared_ptr<boost::asio::ip::tcp::socket> sock_ptr,
+      const boost::asio::ip::tcp::endpoint& endpoint,
+      Counter * counter,
+      IOServicePool * pool,
+      const boost::system::error_code& ec)
   {
-    pool->stop();
+    printf("on_accept %s %lu %lu\n",
+        ec.message().c_str(), counter->times, counter->loop);
 
-    if (!should_end)
+    sock_ptr->close();
+
+    bool new_loop;
+    bool should_end = false;
+    counter->mutex.lock();
+    new_loop = (--counter->times == 0);
+    if (new_loop)
+    {
+      counter->times = 16;
+      should_end = (--counter->loop == 0);
+    }
+    counter->mutex.unlock();
+
+    if (new_loop)
+    {
+      pool->stop();
+
+      if (!should_end)
+      {
+        sock_ptr->async_connect(
+            endpoint, boost::bind(&on_accept, sock_ptr, endpoint, counter, pool, _1));
+        pool->run();
+      }
+    }
+    else
     {
       sock_ptr->async_connect(
           endpoint, boost::bind(&on_accept, sock_ptr, endpoint, counter, pool, _1));
-      pool->run();
     }
-  }
-  else
-  {
-    sock_ptr->async_connect(
-        endpoint, boost::bind(&on_accept, sock_ptr, endpoint, counter, pool, _1));
   }
 }
 
-int main(int argc, char * argv[])
+int main(int argc, char ** argv)
 {
   IOServicePool pool(16);
   Counter counter;

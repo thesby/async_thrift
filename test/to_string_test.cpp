@@ -5,12 +5,16 @@
  * @version
  *
  */
+//lint +libh(gen-cpp/test_types.h)
 #include "gen-cpp/test_types.h"
 #include <stdio.h>
 
+//lint -esym(534,*::insert) Ignoring return value of function
+//lint -esym(578,test) symbol hides symbol
+
 using namespace ::test;
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
   TestStruct test;
   Request req;
@@ -57,10 +61,10 @@ int main(int argc, char **argv)
   test.f12.insert(1000);
 
   test.__isset.f13 = true;
-  test.f13.insert(1);
-  test.f13.insert(10);
-  test.f13.insert(100);
-  test.f13.insert(1000);
+  test.f13.insert(1.0);
+  test.f13.insert(10.0);
+  test.f13.insert(100.0);
+  test.f13.insert(1000.0);
 
   test.__isset.f14 = true;
   test.f14.insert("1");

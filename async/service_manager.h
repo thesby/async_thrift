@@ -10,6 +10,10 @@
 
 #include <asio_pool.h>
 
+//lint -esym(1712,ServiceManager) default constructor not defined
+//lint -esym(1732,ServiceManager) no assignment operator
+//lint -esym(1733,ServiceManager) no copy constructor
+
 namespace apache { namespace thrift { namespace async {
 
   class ServiceManager

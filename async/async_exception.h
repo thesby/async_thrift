@@ -12,8 +12,8 @@
 
 namespace apache { namespace thrift { namespace async {
 
-  //The following thrift exceptions are mapped to boost::system::error_code
-  //to be passed to various handlers:
+  // The following thrift exceptions are mapped to boost::system::error_code
+  // to be passed to various handlers:
   //  ::apache::thrift::TException
   //  ::apache::thrift::TApplicationException
   //  ::apache::thrift::protocol::TProtocolException
@@ -22,8 +22,8 @@ namespace apache { namespace thrift { namespace async {
   enum kTException
   {
     kThriftUnknown = 0,
-    //The following kinds of exceptions are defined by async-thrift
-    kThriftHasPendingOp = 1,
+    // The following kinds of exceptions are defined by async-thrift
+    kThriftHasPendingOp = 1
   };
 
   enum kTApplicationException
@@ -33,7 +33,7 @@ namespace apache { namespace thrift { namespace async {
     kAppInvalidMessageType = TApplicationException::INVALID_MESSAGE_TYPE,
     kAppWrongMethodName = TApplicationException::WRONG_METHOD_NAME,
     kAppBadSequenceID = TApplicationException::BAD_SEQUENCE_ID,
-    kAppMissingResult = TApplicationException::MISSING_RESULT,
+    kAppMissingResult = TApplicationException::MISSING_RESULT
   };
 
   enum kTProtocolException
@@ -43,7 +43,7 @@ namespace apache { namespace thrift { namespace async {
     kProtoNegativeSize = TProtocolException::NEGATIVE_SIZE,
     kProtoSizeLimit = TProtocolException::SIZE_LIMIT,
     kProtoBadVersion = TProtocolException::BAD_VERSION,
-    kProtoNotImplemented = TProtocolException::NOT_IMPLEMENTED,
+    kProtoNotImplemented = TProtocolException::NOT_IMPLEMENTED
   };
 
   enum kTTransportException
@@ -55,7 +55,7 @@ namespace apache { namespace thrift { namespace async {
     kTransInterrupted = TTransportException::INTERRUPTED,
     kTransBadArgs = TTransportException::BAD_ARGS,
     kTransCorruptedData = TTransportException::CORRUPTED_DATA,
-    kTransInternalError = TTransportException::INTERNAL_ERROR,
+    kTransInternalError = TTransportException::INTERNAL_ERROR
   };
 
 

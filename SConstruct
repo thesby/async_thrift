@@ -34,6 +34,7 @@ env.Append(LIBS = [
     FindStaticLib('boost_thread'),
     FindStaticLib('boost_system'),
     FindStaticLib('boost_program_options'),
+    FindStaticLib('gflags'),
     FindStaticLib('thrift'),
     'pthread',
     'rt',
@@ -115,7 +116,7 @@ env.StaticLibrary('thrift_ext',
         'fb303/gen-cpp/thrift_ext_constants.cpp',
         'fb303/gen-cpp/thrift_ext_types.cpp',
 
-        'fb303/AsyncFacebookBase.cpp',
+        'fb303/async_facebook_base.cpp',
         'fb303/process_stat.c',
         'fb303/service_base_handler.cpp',
 
@@ -124,9 +125,14 @@ env.StaticLibrary('thrift_ext',
         'async/async_exception.cpp',
         'async/async_processor.cpp',
         'async/async_server.cpp',
+        'async/async_util.cpp',
         'async/io_service_pool.cpp',
         'async/service_manager.cpp',
-        'async/util.cpp',
+
+        'sync/base_server.cpp',
+        'sync/host.cpp',
+        'sync/threaded_server.cpp',
+        'sync/thread_pool_server.cpp',
     ]
 )
 
@@ -145,6 +151,10 @@ TestSource = [
 #    'test/gen-cpp/thrift_ext_types.cpp',
 ]
 
+env.Program('fb303_shutdown',
+    ['fb303/fb303_shutdown.cpp'],
+)
+
 env.Program('echo_server',
     TestSource + ['test/echo_server.cpp'],
 )
@@ -158,19 +168,21 @@ env.Program('echo_server_test',
 )
 
 env.Program('asio_pool_test',
-    TestSource + ['test/asio_pool_test.cpp'],
+    ['test/asio_pool_test.cpp'],
 )
 
 env.Program('service_manager_test',
-    TestSource + ['test/service_manager_test.cpp'],
+    ['test/service_manager_test.cpp'],
 )
 
 env.Program('io_service_pool_test',
-    TestSource + ['test/io_service_pool_test.cpp'],
+    ['test/io_service_pool_test.cpp'],
 )
 
 env.Program('to_string_test',
     TestSource + ['test/to_string_test.cpp'],
 )
 
-
+env.Program('thrift_pool_test',
+    ['test/thrift_pool_test.cpp'],
+)

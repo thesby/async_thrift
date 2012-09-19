@@ -5,11 +5,13 @@
  * @version
  *
  */
-#include <service_manager.h>
+#include "service_manager.h"
 #include <set>
 #include <map>
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
+
+//lint -esym(1712,Impl) default constructor not defined
 
 namespace apache { namespace thrift { namespace async {
 
@@ -27,7 +29,8 @@ namespace apache { namespace thrift { namespace async {
         bool local_host;// 是否是本机的服务
 
         mutable size_t success, failure;// 成功/失败计数器
-        ServiceEndPoint() :success(0), failure(0) {}
+
+        ServiceEndPoint() : local_host(false), success(0), failure(0) {}
       };
 
       struct ServiceEndPointLess
@@ -68,12 +71,12 @@ namespace apache { namespace thrift { namespace async {
       const std::string local_host_name_;// 本机主机名
 
     private:
-      void parse_backends(const std::string& backends, SEPSet * _set)
+      void parse_backends(const std::string& backends, SEPSet * _set)const
       {
         _set->clear();
 
         std::vector<std::string> hosts_ports;
-        boost::split(hosts_ports, backends, boost::is_any_of(","));
+        (void)boost::split(hosts_ports, backends, boost::is_any_of(","));
 
         size_t size = hosts_ports.size();
         boost::asio::io_service ios;
@@ -83,7 +86,7 @@ namespace apache { namespace thrift { namespace async {
         for (size_t i = 0; i < size; i++)
         {
           std::vector<std::string> host_port;
-          boost::split(host_port, hosts_ports[i], boost::is_any_of(":"));
+          (void)boost::split(host_port, hosts_ports[i], boost::is_any_of(":"));
 
           if (host_port.size() != 2)
           {
@@ -92,7 +95,9 @@ namespace apache { namespace thrift { namespace async {
           }
 
           // 域名解析
-          boost::asio::ip::tcp::resolver::query query(host_port[0], host_port[1]);
+          const std::string& host = host_port[0];
+          const std::string& port = host_port[1];
+          boost::asio::ip::tcp::resolver::query query(host, port);
           boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query, ec);
 
           if (ec)
@@ -109,7 +114,7 @@ namespace apache { namespace thrift { namespace async {
           sep.endpoint = iter->endpoint();
           sep.local_host = (sep.host == local_host_name_) || (sep.host == "localhost");
 
-          _set->insert(sep);
+          (void)_set->insert(sep);
         }
       }
 
@@ -176,7 +181,7 @@ namespace apache { namespace thrift { namespace async {
           SEPSet::iterator it = old_set.find(sep);
           if (it == old_set.end())
           {
-            old_set.insert(it, sep);
+            (void)old_set.insert(it, sep);
             asio_pool_.add(sep.endpoint);
           }
         }
@@ -230,18 +235,24 @@ namespace apache { namespace thrift { namespace async {
           }
           sep_select_vec_count = 0;
 
+#if 0
+          // 优先连本机
           size_t size = sep_select_vec.size();
           for (local_host_index = 0; local_host_index < size; local_host_index++)
           {
             if (!sep_select_vec[local_host_index]->local_host)
               break;
           }
-
-          // FIXME 暂时去掉优先连本机的策略 by yafei.zhang 2012-05-24
+#else
+          // 连接有机器概率相同
           local_host_index = 0;
+#endif
 
           // 随机打乱,前部分是local_host的服务,后部分是非local_host的服务
+          //lint --e(713) Loss of precision
           std::random_shuffle(sep_select_vec.begin(), sep_select_vec.begin()+local_host_index);
+          //lint --e(713) Loss of precision
+          //lint --e(864) Expression involving variable 'sep_select_vec' possibly depends on order of evaluation
           std::random_shuffle(sep_select_vec.begin()+local_host_index, sep_select_vec.end());
         }
 
@@ -250,6 +261,7 @@ namespace apache { namespace thrift { namespace async {
         // 按照随机方案选择(本机)
         for (size_t i=0; i<local_host_index; i++)
         {
+          //lint --e(795) Conceivable division by 0
           sep_ptr = sep_select_vec[sep_select_vec_count++ % local_host_index];
           if (asio_pool_.get(sep_ptr->endpoint, socket_sp))
           {
@@ -284,6 +296,7 @@ namespace apache { namespace thrift { namespace async {
 
       void put(int id, SocketSP * socket_sp)
       {
+        (void)id;
         asio_pool_.put(socket_sp);
       }
 

@@ -16,9 +16,9 @@
 
 using namespace ::apache::thrift::async;
 
-namespace
-{
-  bool s_stop_flag = true;
+namespace {
+
+  bool s_stop_flag = false;
   IOServicePool * s_ios_pool = NULL;
 
   void signal_handler(int)
@@ -66,9 +66,9 @@ namespace
 
     void dump()const
     {
-      int64_t success_bak;
-      int64_t failure_get_conn_bak;
-      int64_t failure_rpc_bak;
+      unsigned long success_bak;
+      unsigned long failure_get_conn_bak;
+      unsigned long failure_rpc_bak;
       {
         boost::mutex::scoped_lock guard(mutex);
         success_bak = success;
@@ -81,9 +81,9 @@ namespace
     }
 
     mutable boost::mutex mutex;
-    int64_t success;
-    int64_t failure_get_conn;
-    int64_t failure_rpc;
+    unsigned long success;
+    unsigned long failure_get_conn;
+    unsigned long failure_rpc;
   } s_stat;
 
   std::vector<EndPoint> s_endpoints;
@@ -93,7 +93,7 @@ namespace
     ios_pool->run();
   }
 
-  void dump_thread(AsioPool * asio_pool)
+  void dump_thread(const AsioPool * asio_pool)
   {
     while(!s_stop_flag)
     {
@@ -110,10 +110,10 @@ namespace
   {
     while (!s_stop_flag)
     {
-      facebook::fb303::AsyncFacebookServiceClient client;
+      ::facebook::fb303::AsyncFacebookServiceClient client;
       EndPoint endpoint;
       SocketSP socket_sp;
-      endpoint = s_endpoints[rand() % s_endpoints.size()];
+      endpoint = s_endpoints[static_cast<size_t>(rand()) % s_endpoints.size()];
 
       if (!asio_pool->get(endpoint, &socket_sp))
       {
@@ -125,8 +125,8 @@ namespace
         client.attach(socket_sp);
         try
         {
-          facebook::fb303::fb_status status = client.getStatus();
-          if (status == facebook::fb303::ALIVE)
+          ::facebook::fb303::fb_status status = client.getStatus();
+          if (status == ::facebook::fb303::ALIVE)
             s_stat.inc_success();
           else
             s_stat.inc_failure_rpc();
@@ -149,7 +149,7 @@ namespace
   }
 }
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
   std::string backends;
   int thread_number;
@@ -158,9 +158,9 @@ int main(int argc, char **argv)
   {
     namespace po = boost::program_options;
     po::options_description desc("Options");
-    desc.add_options()
+    (void)desc.add_options()
       ("help,h", "produce help message")
-      ("backends,b", po::value<std::string>()->default_value("sdl-redis20:9094,sdl-redis21:9094"),
+      ("backends,b", po::value<std::string>()->default_value("sdl-adweb42:9094,sdl-adweb43:9094"),
        "test backends")
       ("thread_number,t", po::value<int>()->default_value(1), "test thread number");
 
@@ -180,7 +180,7 @@ int main(int argc, char **argv)
   catch (std::exception& e)
   {
     std::cout << e.what() << std::endl;
-    return 1;
+    return 0;
   }
 
   /************************************************************************/
@@ -188,11 +188,11 @@ int main(int argc, char **argv)
   boost::asio::io_service ios;
   boost::asio::ip::tcp::resolver resolver(ios);
 
-  boost::split(backend_list, backends, boost::is_any_of(","));
+  (void)boost::split(backend_list, backends, boost::is_any_of(","));
   for (size_t i=0; i<backend_list.size(); i++)
   {
     std::vector<std::string> host_port;
-    boost::split(host_port, backend_list[i], boost::is_any_of(":"));
+    (void)boost::split(host_port, backend_list[i], boost::is_any_of(":"));
     if (host_port.size() != 2)
     {
       printf("backend error: %s\n", backend_list[i].c_str());
@@ -200,7 +200,9 @@ int main(int argc, char **argv)
     }
 
     boost::system::error_code ec;
-    boost::asio::ip::tcp::resolver::query query(host_port[0], host_port[1]);
+    const std::string& host = host_port[0];
+    const std::string& port = host_port[1];
+    boost::asio::ip::tcp::resolver::query query(host, port);
     boost::asio::ip::tcp::resolver::iterator it = resolver.resolve(query, ec);
     if (ec)
     {
@@ -216,24 +218,23 @@ int main(int argc, char **argv)
     return 0;
 
   /************************************************************************/
-  IOServicePool ios_pool(16);
+  IOServicePool ios_pool(static_cast<size_t>(thread_number));
+  //lint --e(789) Assigning address of auto variable 'ios_pool' to static 
   s_ios_pool = &ios_pool;
   AsioPool asio_pool(ios_pool);
   asio_pool.add(s_endpoints);
 
   /************************************************************************/
-  signal(SIGINT, signal_handler);
-  s_stop_flag = false;
+  (void)signal(SIGINT, signal_handler);
 
-
-  printf("testing asio pool\n");
+  printf("testing AsioPool\n");
   boost::thread_group group;
-  group.create_thread(boost::bind(run_ios_pool_thread, &ios_pool));
-  group.create_thread(boost::bind(dump_thread, &asio_pool));
+  (void)group.create_thread(boost::bind(run_ios_pool_thread, &ios_pool));
+  (void)group.create_thread(boost::bind(dump_thread, &asio_pool));
   for (int i=0; i<thread_number; i++)
-    group.create_thread(boost::bind(press_thread, &asio_pool));
+    (void)group.create_thread(boost::bind(press_thread, &asio_pool));
   group.join_all();
-  printf("finished testing asio pool\n");
+  printf("finished testing AsioPool\n");
 
   return 0;
 }

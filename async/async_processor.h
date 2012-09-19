@@ -29,17 +29,17 @@ namespace apache { namespace thrift { namespace async {
     public:
       virtual ~AsyncProcessor() {}
 
-      //When the 'callback' is completed, 'out' shall be filled with stuffs.
-      //If 'callback' is invoked with an 'erroneous' code,
-      //the connection at server side shall be disconnected.
-      //If 'callback' is invoked with a 'successful' code,
-      //the connection at server side may be reused.
+      // When the 'callback' is completed, 'out' shall be filled with stuffs.
+      // If 'callback' is invoked with an 'erroneous' code,
+      // the connection at server side shall be disconnected.
+      // If 'callback' is invoked with a 'successful' code,
+      // the connection at server side may be reused.
       virtual void process(
           boost::shared_ptr<TProtocol>& in,
           boost::shared_ptr<TProtocol>& out,
-          AsyncProcessorCallback callback);//may throw
+          AsyncProcessorCallback callback);// may throw
   };
 
 } } }
 
-#endif//ASYNC_PROCOSSER_H
+#endif

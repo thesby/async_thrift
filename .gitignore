@@ -2,21 +2,12 @@
 *.a
 *.os
 *.so
-*.ncb
-*.suo
-*.user
-*.pdb
-*.obj
-*.lib
-*.exe
-Debug
-Release
 .sconf_temp
 .sconsign.dblite
-*_test
-*_bench
 *.log
 
 gen-*
+*_test
 *server
 *client
+fb303_shutdown

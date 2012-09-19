@@ -15,9 +15,9 @@
 
 using namespace ::apache::thrift::async;
 
-namespace
-{
-  bool s_stop_flag = true;
+namespace {
+
+  bool s_stop_flag = false;
   IOServicePool * s_ios_pool = NULL;
 
   void signal_handler(int)
@@ -65,9 +65,9 @@ namespace
 
     void dump()const
     {
-      int64_t success_bak;
-      int64_t failure_get_conn_bak;
-      int64_t failure_rpc_bak;
+      unsigned long success_bak;
+      unsigned long failure_get_conn_bak;
+      unsigned long failure_rpc_bak;
       {
         boost::mutex::scoped_lock guard(mutex);
         success_bak = success;
@@ -80,9 +80,9 @@ namespace
     }
 
     mutable boost::mutex mutex;
-    int64_t success;
-    int64_t failure_get_conn;
-    int64_t failure_rpc;
+    unsigned long success;
+    unsigned long failure_get_conn;
+    unsigned long failure_rpc;
   } s_stat;
 
   void run_ios_pool_thread(IOServicePool * ios_pool)
@@ -90,7 +90,7 @@ namespace
     ios_pool->run();
   }
 
-  void dump_thread(ServiceManager * sm)
+  void dump_thread(const ServiceManager * sm)
   {
     while(!s_stop_flag)
     {
@@ -107,7 +107,7 @@ namespace
   {
     while (!s_stop_flag)
     {
-      facebook::fb303::AsyncFacebookServiceClient client;
+      ::facebook::fb303::AsyncFacebookServiceClient client;
       SocketSP socket_sp;
 
       if (!sm->get(1, &socket_sp))
@@ -120,8 +120,8 @@ namespace
         client.attach(socket_sp);
         try
         {
-          facebook::fb303::fb_status status = client.getStatus();
-          if (status == facebook::fb303::ALIVE)
+          ::facebook::fb303::fb_status status = client.getStatus();
+          if (status == ::facebook::fb303::ALIVE)
             s_stat.inc_success();
           else
             s_stat.inc_failure_rpc();
@@ -144,7 +144,7 @@ namespace
   }
 }
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
   std::string backends;
   int thread_number;
@@ -153,9 +153,9 @@ int main(int argc, char **argv)
   {
     namespace po = boost::program_options;
     po::options_description desc("Options");
-    desc.add_options()
+    (void)desc.add_options()
       ("help,h", "produce help message")
-      ("backends,b", po::value<std::string>()->default_value("sdl-adweb42:9102,sdl-adweb43:9102"),
+      ("backends,b", po::value<std::string>()->default_value("sdl-adweb42:9094,sdl-adweb43:9094"),
        "test backends")
       ("thread_number,t", po::value<int>()->default_value(1), "test thread number");
 
@@ -175,30 +175,28 @@ int main(int argc, char **argv)
   catch (std::exception& e)
   {
     std::cout << e.what() << std::endl;
-    return 1;
+    return 0;
   }
 
   /************************************************************************/
-  IOServicePool ios_pool(16);
+  IOServicePool ios_pool(static_cast<size_t>(thread_number));
+  //lint --e(789) Assigning address of auto variable 'ios_pool' to static
   s_ios_pool = &ios_pool;
   AsioPool asio_pool(ios_pool);
   ServiceManager sm(asio_pool);
-
   sm.add_backend(1, backends);
 
   /************************************************************************/
-  signal(SIGINT, signal_handler);
-  s_stop_flag = false;
+  (void)signal(SIGINT, signal_handler);
 
-
-  printf("testing service manager\n");
+  printf("testing ServiceManager\n");
   boost::thread_group group;
-  group.create_thread(boost::bind(run_ios_pool_thread, &ios_pool));
-  group.create_thread(boost::bind(dump_thread, &sm));
+  (void)group.create_thread(boost::bind(run_ios_pool_thread, &ios_pool));
+  (void)group.create_thread(boost::bind(dump_thread, &sm));
   for (int i=0; i<thread_number; i++)
-    group.create_thread(boost::bind(press_thread, &sm));
+    (void)group.create_thread(boost::bind(press_thread, &sm));
   group.join_all();
-  printf("finished testing service manager\n");
+  printf("finished testing ServiceManager\n");
 
   return 0;
 }

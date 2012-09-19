@@ -5,17 +5,19 @@
  * @version
  *
  */
-#include <async_server.h>
+#include "async_server.h"
 #include <async_exception.h>
 #include <async_connection.h>
 #include <set>
+
+//lint -esym(1712,Impl) default constructor not defined
+//lint -esym(1712,Connection) default constructor not defined
 
 namespace apache { namespace thrift { namespace async {
 
   class AsyncThriftServer::Impl : private boost::noncopyable
   {
     private:
-      class Connection;
       class ConnManager;
 
       class Connection : public AsyncConnection
@@ -63,7 +65,7 @@ namespace apache { namespace thrift { namespace async {
           void del_all();
       };
 
-      void open_acceptor();//may throw
+      void open_acceptor();// may throw
       void async_accept();
       void close_async_accept();
       void handle_accept(const boost::system::error_code& ec);
@@ -110,10 +112,11 @@ namespace apache { namespace thrift { namespace async {
           delete new_conn_;
       }
 
-      void serve();//may throw
+      void serve();// may throw
       void stop();
       void stop_impl();
 
+      //lint -esym(1536,*io_service_pool_) Exposing low access member
       IOServicePool& get_io_service_pool()
       {
         return io_service_pool_;
@@ -128,7 +131,7 @@ namespace apache { namespace thrift { namespace async {
     acceptor_->open(endpoint_.protocol());
     boost::asio::socket_base::reuse_address option(true);
     acceptor_->set_option(option);
-    acceptor_->bind(endpoint_);//may throw
+    acceptor_->bind(endpoint_);// may throw
     acceptor_->listen();
   }
 
@@ -143,10 +146,11 @@ namespace apache { namespace thrift { namespace async {
         boost::bind(&AsyncThriftServer::Impl::handle_accept, this, _1));
   }
 
+  //lint -esym(1762,*close_async_accept) Member function could be made const
   void AsyncThriftServer::Impl::close_async_accept()
   {
     boost::system::error_code ec;
-    acceptor_->close(ec);
+    (void)acceptor_->close(ec);
   }
 
   void AsyncThriftServer::Impl::handle_accept(const boost::system::error_code& ec)
@@ -184,26 +188,28 @@ namespace apache { namespace thrift { namespace async {
     close_async_accept();
 
     io_service_pool_.stop();
-
-    //conn_manager_.del_all(); this may cause core
   }
 
   /************************************************************************/
+  //lint -e{429} Custodial pointer 'c' has not been freed or returned
   void AsyncThriftServer::Impl::ConnManager::start(AsyncThriftServer::Impl::Connection * c)
   {
+    if (c)
     {
-      boost::mutex::scoped_lock guard(mutex_);
-      set_.insert(c);
+      {
+        boost::mutex::scoped_lock guard(mutex_);
+        (void)set_.insert(c);
+      }
+      c->set_conn_manager(this);
+      c->start_recv(true);
     }
-    c->set_conn_manager(this);
-    c->start_recv(true);
   }
 
   void AsyncThriftServer::Impl::ConnManager::del(AsyncThriftServer::Impl::Connection * c)
   {
     {
       boost::mutex::scoped_lock guard(mutex_);
-      set_.erase(c);
+      (void)set_.erase(c);
     }
   }
 
@@ -240,6 +246,7 @@ namespace apache { namespace thrift { namespace async {
   {
   }
 
+  //lint -e{1740} pointer member 'conn_manager_' not directly freed or zeroed by destructor
   AsyncThriftServer::Impl::Connection::~Connection()
   {
     if (conn_manager_)
@@ -252,7 +259,7 @@ namespace apache { namespace thrift { namespace async {
     assert(async_rpc_);
     if (ec)
     {
-      on_close(ec);//current connection diminishes here
+      on_close(ec);// current connection diminishes here
       return;
     }
 
@@ -266,7 +273,7 @@ namespace apache { namespace thrift { namespace async {
   {
     BaseType::on_close(ec);
 
-    delete this;//NOTICE!!!
+    delete this;// NOTICE!!!
   }
 
   void AsyncThriftServer::Impl::Connection::on_handle_frame()
@@ -277,15 +284,15 @@ namespace apache { namespace thrift { namespace async {
       {
         async_processor_->process(
             input_proto_, output_proto_,
-            boost::bind(&Connection::async_process, this, _1, _2));//may throw
+            boost::bind(&Connection::async_process, this, _1, _2));// may throw
       }
       else
       {
-        processor_->process(input_proto_, output_proto_);//may throw
-        //NOTICE!!!
-        //AsyncThriftServer does not support oneway functions, it always replies here.
-        //Because we could not know whether a RPC is oneway.
-        //This defect will not be fixed, AsyncThriftServerEx is a substitute.
+        (void)processor_->process(input_proto_, output_proto_);// may throw
+        // NOTICE!!!
+        // AsyncThriftServer does not support oneway functions, it always replies here.
+        // Because we could not know whether a RPC is oneway.
+        // This defect will not be fixed, AsyncThriftServerEx is a substitute.
         start_write_output_buffer();
       }
     }
@@ -318,7 +325,7 @@ namespace apache { namespace thrift { namespace async {
       GlobalOutput.printf("on_handle_frame: error");
       boost::system::error_code ec(
           boost::system::posix_error::bad_message, boost::system::get_posix_category());
-      on_close(ec);//current connection diminishes at each on_close
+      on_close(ec);// current connection diminishes at each on_close
     }
   }
 
@@ -361,4 +368,4 @@ namespace apache { namespace thrift { namespace async {
     return impl_->get_io_service_pool();
   }
 
-} } } // namespace
+} } }

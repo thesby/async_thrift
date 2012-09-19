@@ -11,6 +11,10 @@
 #include <io_service_pool.h>
 #include <async_common.h>
 
+//lint -esym(1712,AsioPool) default constructor not defined
+//lint -esym(1732,AsioPool) no assignment operator
+//lint -esym(1733,AsioPool) no copy constructor
+//
 namespace apache { namespace thrift { namespace async {
 
   typedef boost::asio::ip::tcp::endpoint EndPoint;

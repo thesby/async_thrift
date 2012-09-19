@@ -8,8 +8,8 @@
 #ifndef SERVICE_BASE_PROCESSOR_H
 #define SERVICE_BASE_PROCESSOR_H
 
-#include "service_base_handler.h"
-#include "process_stat.h"
+#include <service_base_handler.h>
+#include <process_stat.h>
 #include <time.h>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
@@ -129,6 +129,6 @@ namespace thrift_ext {
       }
   };
 
-} // namespace
+}
 
 #endif

@@ -5,7 +5,7 @@
  * @version
  *
  */
-#include <async_processor.h>
+#include "async_processor.h"
 #include <async_exception.h>
 
 namespace apache { namespace thrift { namespace async {
@@ -21,25 +21,25 @@ namespace apache { namespace thrift { namespace async {
     ::apache::thrift::protocol::TMessageType mtype;
     int32_t seqid;
 
-    input_protocol->readMessageBegin(fname, mtype, seqid);
+    (void)input_protocol->readMessageBegin(fname, mtype, seqid);
 
     if (mtype != ::apache::thrift::protocol::T_CALL
         && mtype != ::apache::thrift::protocol::T_ONEWAY)
     {
-      input_protocol->skip(::apache::thrift::protocol::T_STRUCT);
-      input_protocol->readMessageEnd();
+      (void)input_protocol->skip(::apache::thrift::protocol::T_STRUCT);
+      (void)input_protocol->readMessageEnd();
       input_protocol->getTransport()->readEnd();
       TApplicationException x(TApplicationException::INVALID_MESSAGE_TYPE);
-      output_protocol->writeMessageBegin(fname,
+      (void)output_protocol->writeMessageBegin(fname,
           ::apache::thrift::protocol::T_EXCEPTION, seqid);
-      x.write(output_protocol);
-      output_protocol->writeMessageEnd();
+      (void)x.write(output_protocol);
+      (void)output_protocol->writeMessageEnd();
       output_protocol->getTransport()->flush();
       output_protocol->getTransport()->writeEnd();
 
-      //invoke callback
-      //Here is_oneway(the second parameter 'false') is ignored,
-      //because error code is specified
+      // invoke callback
+      // Here is_oneway(the second parameter 'false') is ignored,
+      // because error code is specified
       callback(make_error_code(x), false);
       return;
     }

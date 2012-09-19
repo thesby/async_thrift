@@ -6,10 +6,12 @@
  *
  */
 #include "service_base_handler.h"
+#include <stdio.h>
 #include <boost/asio/ip/host_name.hpp>
 
 namespace thrift_ext {
 
+  //lint --e{1566} 'status_' might have been initialized by 'set_status'
   ServiceBaseHandler::ServiceBaseHandler(
       const std::string& group,
       const std::string& host,
@@ -21,7 +23,7 @@ namespace thrift_ext {
     if (!group.empty())
       sstatus_.group = group;
     else
-      sstatus_.group = "default";
+      sstatus_.group = "default";// hard code
     if (!host.empty())
       sstatus_.host = host;
     else
@@ -30,17 +32,23 @@ namespace thrift_ext {
 
     sstatus_rt_.reset(new ServiceStatusRT);
 
-    set_status(facebook::fb303::ALIVE);
+    set_status(::facebook::fb303::ALIVE);
   }
 
   ServiceBaseHandler::~ServiceBaseHandler()
   {
-    set_status(facebook::fb303::DEAD);
+    set_status(::facebook::fb303::DEAD);
   }
 
   void ServiceBaseHandler::shutdown()
   {
-    set_status(facebook::fb303::STOPPED);
+    set_status(::facebook::fb303::STOPPED);
+
+    if (server_)
+    {
+      server_->stop();
+      server_.reset();
+    }
   }
 
   void ServiceBaseHandler::get_status_rt(ServiceStatusRT& _return)
@@ -55,4 +63,4 @@ namespace thrift_ext {
     sstatus_rt_.swap(sstatus_rt);
   }
 
-} // namespace
+}

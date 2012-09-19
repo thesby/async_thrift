@@ -5,7 +5,7 @@
  * @version
  *
  */
-#include <util.h>
+#include "async_util.h"
 
 namespace apache { namespace thrift { namespace async {
 
@@ -33,4 +33,4 @@ namespace apache { namespace thrift { namespace async {
     return oss.str();
   }
 
-} } } // namespace
+} } }

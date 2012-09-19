@@ -8,6 +8,8 @@
 #include "gen-cpp/AsyncEchoServer.h"
 #include <async_server.h>
 #include <service_base_processor.h>
+#include <thread_pool_server.h>
+#include <threaded_server.h>
 #include <signal.h>
 #include <iostream>
 #include <boost/program_options.hpp>
@@ -24,9 +26,9 @@ using namespace ::apache::thrift::transport;
 using namespace ::apache::thrift::server;
 using namespace ::apache::thrift::concurrency;
 using namespace ::apache::thrift::async;
+using namespace ::apache::thrift::sync;
 using namespace ::thrift_ext;
 using namespace ::test;
-
 
 class EchoServerHandler : public ServiceBaseHandler, public EchoServerIf
 {
@@ -77,6 +79,24 @@ class AsyncEchoServerHandler : public AsyncEchoServerNull
       _return.message = request.message;
       callback(boost::system::error_code());
     }
+
+    virtual void async_shutdown(::apache::thrift::async::AsyncRPCCallback callback)
+    {
+      if (server_)
+      {
+        server_->stop();
+        server_.reset();
+      }
+      callback(boost::system::error_code());
+    }
+
+    void set_server(const boost::shared_ptr<TServer>& server)
+    {
+      server_ = server;
+    }
+
+  private:
+    boost::shared_ptr<TServer> server_;
 };
 
 
@@ -88,20 +108,20 @@ static void signal_handler(int)
     s_server->stop();
 }
 
-int main(int argc, char **argv)
+int main(int argc, char ** argv)
 {
   try
   {
     namespace po = boost::program_options;
     po::options_description desc("Options");
-    desc.add_options()
+    (void)desc.add_options()
       ("help,h", "produce help message")
       ("port,p", po::value<int>()->default_value(12500), "listening port")
       ("server-model,s", po::value<std::string>()->default_value("threaded"),
-       "server model: async, sync, threaded, threadpool")
+       "server model: async, sync, threaded, threadpool, threaded2, thteadpool2")
       ("base-processor,b", po::value<bool>()->default_value(true), "use ServiceBaseProcessor")
       ("threadpool-size,t", po::value<int>()->default_value(32),
-       "thread pool size(only for async/sync/threadpool model)");
+       "thread pool size(only for async/sync/threadpool/thteadpool2 model)");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -118,7 +138,7 @@ int main(int argc, char **argv)
     bool base = vm["base-processor"].as<bool>();
     int threadpool_size = vm["threadpool-size"].as<int>();
 
-    signal(SIGINT, signal_handler);
+    (void)signal(SIGINT, signal_handler);
 
     boost::shared_ptr<EchoServerHandler> handler(new EchoServerHandler("group0", "host0", "echo server"));
     boost::shared_ptr<TProcessor> processor;
@@ -129,39 +149,66 @@ int main(int argc, char **argv)
     boost::shared_ptr<AsyncEchoServerHandler> async_handler(new AsyncEchoServerHandler());
     boost::shared_ptr<AsyncProcessor> async_processor(new AsyncEchoServerProcessor(async_handler));
 
-    if (server_model == "threaded")
+    if (server_model == "threaded" || server_model == "threaded2")
     {
-      printf("TThreadedServer\n");
+      if (server_model == "threaded")
+        printf("TThreadedServer\n");
+      else
+        printf("ThreadedServer\n");
+
       boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
       boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
       boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
 
-      s_server.reset(new TThreadedServer(processor,
-            serverTransport,
-            transportFactory,
-            protocolFactory));
+      if (server_model == "threaded")
+        s_server.reset(new TThreadedServer(processor,
+              serverTransport,
+              transportFactory,
+              protocolFactory));
+      else
+        s_server.reset(new ThreadedServer(processor,
+              serverTransport,
+              transportFactory,
+              protocolFactory,
+              20));
+      handler->set_server(s_server);
       s_server->serve();
       s_server.reset();
     }
-    else if (server_model == "threadpool")
+    else if (server_model == "threadpool" || server_model == "threadpool2")
     {
-      printf("TThreadPoolServer\n");
+      if (server_model == "threadpool")
+        printf("TThreadPoolServer\n");
+      else
+        printf("ThreadPoolServer\n");
 
       boost::shared_ptr<TServerTransport> serverTransport(new TServerSocket(port));
       boost::shared_ptr<TTransportFactory> transportFactory(new TFramedTransportFactory());
       boost::shared_ptr<TProtocolFactory> protocolFactory(new TBinaryProtocolFactory());
-      boost::shared_ptr<ThreadManager> thread_manager
-        = ThreadManager::newSimpleThreadManager(threadpool_size, threadpool_size);
-      boost::shared_ptr<PosixThreadFactory> thread_factory(new PosixThreadFactory());
-      thread_manager->threadFactory(thread_factory);
 
-      s_server.reset(new TThreadPoolServer(processor,
-            serverTransport,
-            transportFactory,
-            protocolFactory,
-            thread_manager));
 
-      thread_manager->start();
+      if (server_model == "threadpool")
+      {
+        boost::shared_ptr<ThreadManager> thread_manager
+          = ThreadManager::newSimpleThreadManager(threadpool_size, threadpool_size);
+        boost::shared_ptr<PosixThreadFactory> thread_factory(new PosixThreadFactory());
+        thread_manager->threadFactory(thread_factory);
+        s_server.reset(new TThreadPoolServer(processor,
+              serverTransport,
+              transportFactory,
+              protocolFactory,
+              thread_manager));
+        thread_manager->start();
+      }
+      else
+      {
+        s_server.reset(new ThreadPoolServer(processor,
+              serverTransport,
+              transportFactory,
+              protocolFactory,
+              0, 100, 20, 5));
+      }
+      handler->set_server(s_server);
       s_server->serve();
       s_server.reset();
     }
@@ -172,6 +219,7 @@ int main(int argc, char **argv)
       boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v6(), port);
       IOServicePool pool(threadpool_size);
       s_server.reset(new AsyncThriftServer(async_processor, endpoint, pool));
+      async_handler->set_server(s_server);
       s_server->serve();
       s_server.reset();
     }
@@ -182,6 +230,7 @@ int main(int argc, char **argv)
       boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v6(), port);
       IOServicePool pool(threadpool_size);
       s_server.reset(new AsyncThriftServer(processor, endpoint, pool));
+      handler->set_server(s_server);
       s_server->serve();
       s_server.reset();
     }
@@ -194,4 +243,3 @@ int main(int argc, char **argv)
 
   return 0;
 }
-

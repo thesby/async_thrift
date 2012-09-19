@@ -5,9 +5,11 @@
  * @version
  *
  */
-#include <asio_pool.h>
-#include <util.h>
+#include "asio_pool.h"
+#include <async_util.h>
 #include <map>
+
+//lint -esym(1712,Impl) default constructor not defined
 
 namespace apache { namespace thrift { namespace async {
 
@@ -58,6 +60,7 @@ namespace apache { namespace thrift { namespace async {
           addr4.sin_port = htons(endpoint.port());
           addr4.sin_addr.s_addr = htonl(addr.to_v4().to_ulong());
 
+          //lint --e(740) struct sockaddr_in6/struct sockaddr_in ptr conversion
           address = (const struct sockaddr *)&addr4;
           address_len = sizeof(addr4);
         }
@@ -71,15 +74,17 @@ namespace apache { namespace thrift { namespace async {
           addr6.sin6_flowinfo = 0;
           addr6.sin6_port = htons(endpoint.port());
           boost::asio::ip::address_v6::bytes_type bytes = addr.to_v6().to_bytes();
+          //lint --e(420) 16
           memcpy(&addr6.sin6_addr, &bytes[0], 16);
 
+          //lint --e(740) struct sockaddr_in6/struct sockaddr_in ptr conversion
           address = (const struct sockaddr *)&addr6;
           address_len = sizeof(addr6);
         }
 
         {
-          struct timeval timeout = {0, timeout_ms*1000};
-          setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+          struct timeval timeout = {0, static_cast<suseconds_t>(timeout_ms*1000)};
+          (void)setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
         }
 
         if (connect(sockfd, address, address_len) != 0)
@@ -95,7 +100,7 @@ namespace apache { namespace thrift { namespace async {
 
         {
           struct timeval timeout = {0, 0};
-          setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+          (void)setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
         }
 
         socket_sp.reset(new SocketSP::value_type(io_service));
@@ -113,7 +118,7 @@ namespace apache { namespace thrift { namespace async {
         kConnected,// 连接保持,只有此状态的池才可用
         kDisConnected,// 连接断开
         kDeleting,// 正删除
-        kDeleted,// 已删除
+        kDeleted// 已删除
       };
 
       /**
@@ -128,7 +133,7 @@ namespace apache { namespace thrift { namespace async {
 
       static const char * status_to_cstring(kStatus status)
       {
-        static const char * str[] =
+        static const char * const str[] =
         {
           "kAdding",
           "kConnected",
@@ -179,7 +184,7 @@ namespace apache { namespace thrift { namespace async {
       const size_t connect_timeout_;
       const size_t probe_cycle_;
 
-      mutable boost::recursive_mutex mutex_;// 保护map_,stats_
+      mutable boost::recursive_mutex mutex_;// 保护'map_', 'stats_'
       EndPointPoolMap map_;
 
       // 统计信息
@@ -250,19 +255,20 @@ namespace apache { namespace thrift { namespace async {
 
       void set_probe_immediate()
       {
-        probe_timer_.expires_from_now(boost::posix_time::seconds(0));
+        (void)probe_timer_.expires_from_now(boost::posix_time::seconds(0));
         probe_timer_.async_wait(boost::bind(&AsioPool::Impl::probe, this));
       }
 
+      //lint -e{713} Loss of precision
       void set_probe()
       {
-        probe_timer_.expires_from_now(boost::posix_time::seconds(probe_cycle_));
+        (void)probe_timer_.expires_from_now(boost::posix_time::seconds(probe_cycle_));
         probe_timer_.async_wait(boost::bind(&AsioPool::Impl::probe, this));
       }
 
       void set_quick_probe()
       {
-        quick_probe_timer_.expires_from_now(boost::posix_time::seconds(0));
+        (void)quick_probe_timer_.expires_from_now(boost::posix_time::seconds(0));
         quick_probe_timer_.async_wait(boost::bind(&AsioPool::Impl::quick_probe, this));
       }
 
@@ -285,6 +291,8 @@ namespace apache { namespace thrift { namespace async {
             kStatus& status = endpoint_pool.status;
             SocketSPVector& pool = endpoint_pool.pool;
 
+            //lint -e{616} fallthrough
+            //lint -e{825} fallthrough
             switch (status)
             {
               case kConnected:
@@ -306,8 +314,6 @@ namespace apache { namespace thrift { namespace async {
                   else
                   {
                     // 池正常
-                    //GlobalOutput.printf("%s[kConnected] ok\n",
-                    //  endpoint_to_string(endpoint).c_str());
                     break;
                   }
                 }
@@ -316,7 +322,6 @@ namespace apache { namespace thrift { namespace async {
                   // 池为空
                   GlobalOutput.printf("%s[kConnected]'s pool is empty\n",
                       endpoint_to_string(endpoint).c_str());
-                  // fall through
                 }
 
               case kAdding:
@@ -477,6 +482,7 @@ namespace apache { namespace thrift { namespace async {
                           // 该池的状态被改变了
                           break;
 
+                        //lint --e(864) Expression involving variable 'pool' possibly depends on order of evaluation
                         new_endpoint_pool.pool.insert(new_endpoint_pool.pool.end(),
                             pool.begin(), pool.end());
                         pool.clear();
@@ -649,8 +655,6 @@ namespace apache { namespace thrift { namespace async {
           {
             // 保守,状态不为kConnected根本不会尝试去获取连接(即使这时服务可能已经恢复)
             stats_.got_conn_failure_++;
-            //GlobalOutput.printf("%s: status is not [kConnected]\n",
-            //  endpoint_to_string(endpoint).c_str());
             return false;
           }
 
@@ -661,8 +665,6 @@ namespace apache { namespace thrift { namespace async {
             {
               // 连接异常断开,关闭同一个池的所有连接
               endpoint_pool.pool.swap(tmp_pool);
-              //GlobalOutput.printf("%s: no available socket in the pool\n",
-              //  endpoint_to_string(endpoint).c_str());
             }
             else
             {
@@ -670,8 +672,6 @@ namespace apache { namespace thrift { namespace async {
               endpoint_pool.pool.pop_back();
 
               stats_.got_from_pool_conn_++;
-              //GlobalOutput.printf("%s: got a socket from the pool\n",
-              //  endpoint_to_string(endpoint).c_str());
               return true;
             }
           }
@@ -693,8 +693,6 @@ namespace apache { namespace thrift { namespace async {
           endpoint_pool.pool.swap(tmp_pool);
 
           stats_.got_conn_failure_++;
-          //GlobalOutput.printf("%s: got a new connection failed\n",
-          //  endpoint_to_string(endpoint).c_str());
 
           guard.unlock();
           clear_pool(&tmp_pool);
@@ -705,8 +703,6 @@ namespace apache { namespace thrift { namespace async {
         {
           boost::recursive_mutex::scoped_lock guard(mutex_);
           stats_.got_from_created_conn_++;
-          //GlobalOutput.printf("%s: got a new connection ok\n",
-          //  endpoint_to_string(endpoint).c_str());
           return true;
         }
       }

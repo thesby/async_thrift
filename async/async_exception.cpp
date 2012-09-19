@@ -5,7 +5,7 @@
  * @version
  *
  */
-#include <async_exception.h>
+#include "async_exception.h"
 
 namespace apache { namespace thrift { namespace async {
 
@@ -129,26 +129,30 @@ namespace apache { namespace thrift { namespace async {
 
   const boost::system::error_category& get_thrift_category()
   {
+    //lint -e(1502) 'thrift_category' has no nonstatic data members
     static thrift_category instance;
     return instance;
   }
 
   const boost::system::error_category& get_application_category()
   {
+    //lint -e(1502) 'thrift_category' has no nonstatic data members
     static application_category instance;
     return instance;
   }
 
   const boost::system::error_category& get_protocol_category()
   {
+    //lint -e(1502) 'thrift_category' has no nonstatic data members
     static protocol_category instance;
     return instance;
   }
 
   const boost::system::error_category& get_transport_category()
   {
+    //lint -e(1502) 'thrift_category' has no nonstatic data members
     static transport_category instance;
     return instance;
   }
 
-} } } // namespace
+} } }

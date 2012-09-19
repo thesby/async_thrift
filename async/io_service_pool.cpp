@@ -5,9 +5,11 @@
  * @version
  *
  */
-#include <io_service_pool.h>
+#include "io_service_pool.h"
 #include <boost/thread/tss.hpp>
 #include <boost/thread/thread.hpp>
+
+//lint -esym(578,index) symbol hides symbol
 
 namespace apache { namespace thrift { namespace async {
 
@@ -27,7 +29,7 @@ namespace apache { namespace thrift { namespace async {
   void run_io_service_tss(boost::asio::io_service * ios)
   {
     set_tss_io_service(ios);
-    ios->run();
+    (void)ios->run();
   }
 
   io_service_pool::io_service_pool(size_t pool_size)
@@ -58,10 +60,10 @@ namespace apache { namespace thrift { namespace async {
     for (size_t i=0; i<io_services_.size(); i++)
     {
       if (enable_tss)
-        tg.create_thread(
+        (void)tg.create_thread(
             boost::bind(run_io_service_tss, io_services_[i].get()));
       else
-        tg.create_thread(
+        (void)tg.create_thread(
             boost::bind(&boost::asio::io_service::run, io_services_[i].get()));
     }
 
@@ -95,4 +97,4 @@ namespace apache { namespace thrift { namespace async {
     return *io_services_[index % io_services_.size()];
   }
 
-} } } // namespace
+} } }

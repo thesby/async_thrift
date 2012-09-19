@@ -14,17 +14,22 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 
+//lint -esym(1712,io_service_pool) default constructor not defined
+//lint -esym(1732,io_service_pool) no assignment operator
+//lint -esym(1733,io_service_pool) no copy constructor
+
 namespace apache { namespace thrift { namespace async {
 
   void set_tss_io_service(boost::asio::io_service * ios);
   boost::asio::io_service * get_tss_io_service();
   void run_io_service_tss(boost::asio::io_service * ios);
 
-  // This piece of code is from asio example
+  // This piece of code is derived from asio example
   class io_service_pool : private boost::noncopyable
   {
     public:
       explicit io_service_pool(size_t pool_size);
+      ~io_service_pool() {}
       // When enable_tss is true,
       // run_io_service_tss rather than boost::asio::io_service::run is the thread function.
       // At this time,
