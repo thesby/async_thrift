@@ -311,6 +311,8 @@ namespace apache { namespace thrift { namespace sync {
             client = pools_[(index + i) % pools_.size()]->clone();
             if (client->is_open())
               break;
+            delete client;
+            client = 0;
           }
           return client;
         }
