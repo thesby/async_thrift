@@ -16,6 +16,7 @@
 #include <host.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <limits>
 #include <string>
 #include <vector>
 #include <boost/algorithm/string.hpp>
@@ -202,6 +203,9 @@ namespace apache { namespace thrift { namespace sync {
 
 
       private:
+        typedef  boost::variate_generator< boost::mt19937&, boost::uniform_int<size_t> > RandomType;
+        boost::scoped_ptr<RandomType> rand_;
+
         const bool framed_transport_;
         const int thrift_conn_timeout_;
         const int thrift_send_timeout_;
@@ -244,15 +248,10 @@ namespace apache { namespace thrift { namespace sync {
           return *index;
         }
 
-        size_t get_random_number(void)
-        {
-          struct timeval tv;
-          gettimeofday(&tv, NULL);
-          boost::mt19937 rand_19937(tv.tv_usec);
-          boost::uniform_int<> uni_int(0, std::numeric_limits<int>::max());
-          boost::variate_generator< boost::mt19937&, boost::uniform_int<> > r(rand_19937, uni_int);
 
-          return r();
+        size_t get_random_number(void)const
+        {
+          return (*rand_)();
         }
 
       public:
@@ -267,6 +266,10 @@ namespace apache { namespace thrift { namespace sync {
           thrift_send_timeout_(thrift_send_timeout),
           thrift_recv_timeout_(thrift_recv_timeout)
       {
+        boost::mt19937 rand_19937(0);
+        boost::uniform_int<size_t> uniform(0, std::numeric_limits<size_t>::max());
+        rand_.reset(new RandomType(rand_19937, uniform));
+
         std::vector<std::string> split_vector;
         (void)boost::split(split_vector, backends, boost::is_any_of(","));
         for (size_t i=0; i<split_vector.size(); i++)

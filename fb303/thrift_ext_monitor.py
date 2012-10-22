@@ -10,10 +10,11 @@ from thrift.transport import THttpClient
 from thrift.protocol import TBinaryProtocol
 from thrift_ext.ttypes import *
 import thrift_ext.Service
+import mongo
 
 
 FLAGS = gflags.FLAGS
-gflags.DEFINE_string('host', 'localhost:12500,localhost:12500', 'a host list to monitor(host:port,[host:port]...)') 
+gflags.DEFINE_string('monitor_host', 'localhost:12500,localhost:12500', 'a host list to monitor')
 
 
 def thrift_ext_connect(host, port):
@@ -50,7 +51,7 @@ if __name__ == '__main__':
     print '%s\nUsage: %s ARGS\n%s' % (e, sys.argv[0], FLAGS)
     sys.exit(1)
 
-  for host_port in FLAGS.host.split(','):
+  for host_port in FLAGS.monitor_host.split(','):
     tmp = host_port.split(':')
     if len(tmp) != 2:
       continue
@@ -64,4 +65,17 @@ if __name__ == '__main__':
       print status
       print status_rt
       thrift_ext_close(client);
+      record={}
+      record['s'] = status.service_
+      record['h'] = status.host
+      record['g'] = status.group
+      record['c'] = status_rt.cpu
+      record['m'] = status_rt.memory
+      total_qps=0
+      for v in status_rt.rpc_qps.values():
+        total_qps += v
+      record['q'] = total_qps
+      mongo.mongo_inserter(record)
+
+
 

@@ -223,7 +223,7 @@ namespace apache { namespace thrift { namespace async {
         if (sep_select_vec.size() != sep_set.size()
             || sep_select_vec_count > 4096)// magic number
         {
-          // GlobalOutput.printf("service manager status:\n%s\n", get_status().c_str());
+          GlobalOutput.printf("service manager status:\n%s\n", get_status().c_str());
 
           sep_select_vec.clear();
           SEPSet::const_iterator first = sep_set.begin();
