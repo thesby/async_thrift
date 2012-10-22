@@ -203,8 +203,11 @@ namespace apache { namespace thrift { namespace sync {
 
 
       private:
-        typedef  boost::variate_generator< boost::mt19937&, boost::uniform_int<size_t> > RandomType;
-        boost::scoped_ptr<RandomType> rand_;
+        typedef boost::uniform_int<size_t> UniformSizet;
+        typedef boost::variate_generator<boost::mt19937&, UniformSizet> RandomType;
+        boost::mt19937 mt_19937_;
+        UniformSizet uniform_;
+        RandomType rand_;
 
         const bool framed_transport_;
         const int thrift_conn_timeout_;
@@ -249,9 +252,9 @@ namespace apache { namespace thrift { namespace sync {
         }
 
 
-        size_t get_random_number(void)const
+        size_t get_random_number(void)
         {
-          return (*rand_)();
+          return rand_();
         }
 
       public:
@@ -261,15 +264,14 @@ namespace apache { namespace thrift { namespace sync {
             int thrift_conn_timeout = 50,
             int thrift_send_timeout = 50,
             int thrift_recv_timeout = 50)
-          : framed_transport_(framed_transport),
+          : mt_19937_(0),
+          uniform_(0, std::numeric_limits<size_t>::max()),
+          rand_(mt_19937_, uniform_),
+          framed_transport_(framed_transport),
           thrift_conn_timeout_(thrift_conn_timeout),
           thrift_send_timeout_(thrift_send_timeout),
           thrift_recv_timeout_(thrift_recv_timeout)
       {
-        boost::mt19937 rand_19937(0);
-        boost::uniform_int<size_t> uniform(0, std::numeric_limits<size_t>::max());
-        rand_.reset(new RandomType(rand_19937, uniform));
-
         std::vector<std::string> split_vector;
         (void)boost::split(split_vector, backends, boost::is_any_of(","));
         for (size_t i=0; i<split_vector.size(); i++)
