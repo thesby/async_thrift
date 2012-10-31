@@ -23,7 +23,7 @@ struct ServiceStatusRT
 
 service Service extends fb303.FacebookService
 {
-  ServiceStatus get_status()
-  ServiceStatusRT get_status_rt()
+  ServiceStatus get_status();
+  ServiceStatusRT get_status_rt();
 }
 
